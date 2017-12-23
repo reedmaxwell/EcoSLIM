@@ -10,9 +10,7 @@
 ! Contributors: Mohammad Danesh-Yazdi (danesh@mines.edu)
 !               Lindsay Bearup (lbearup@usbr.gov)
 !
-! Explore https://inside.mines.edu/~rmaxwell/maxwell_software.shtml
-! for examples of ParFlow and SLIM (older version of SLIM2) working
-! together.
+! released under GNU LPGL, see LICENSE file for details
 !
 !--------------------------------------------------------------------
 ! MAIN FORTRAN CODE
@@ -70,17 +68,17 @@
 ! (2) Read inputs, set up domain, write the log file, and
 !     initialize particles,
 !
-! (3) For each timestep, loop over all particles to find and 
-!     update their new locations 
+! (3) For each timestep, loop over all particles to find and
+!     update their new locations
 !--------------------------------------------------------------------
 
 program SLIM2
 
-!--------------------------------------------------------------------        
+!--------------------------------------------------------------------
 ! (1) Define variables
 !--------------------------------------------------------------------
 
-real*8,allocatable::P(:,:)       
+real*8,allocatable::P(:,:)
         ! P = Particle array [np,attributes]
         ! np = Number of particles
         ! P(np,1) = X coordinate [L]
@@ -99,10 +97,10 @@ real*8,allocatable::PInLoc(:,:)
         ! PInLoc(np,2) = Particle initial Y location
         ! PInLoc(np,3) = Particle initial Z location
 
-real*8,allocatable::Vx(:,:,:)   
-real*8,allocatable::Vy(:,:,:)   
-real*8,allocatable::Vz(:,:,:)  
-        ! Vx = Velocity x-direction [nx+1,ny,nz] -- ParFlow output 
+real*8,allocatable::Vx(:,:,:)
+real*8,allocatable::Vy(:,:,:)
+real*8,allocatable::Vz(:,:,:)
+        ! Vx = Velocity x-direction [nx+1,ny,nz] -- ParFlow output
         ! Vy = Velocity y-direction [nx,ny+1,nz] -- ParFlow output
         ! Vz = Velocity z-direction [nx,ny,nz+1] -- ParFlow output
 
@@ -123,10 +121,10 @@ real*8,allocatable::Saturation(:,:,:)   ! Saturation (read from ParFlow)
 real*8,allocatable::Porosity(:,:,:)     ! Porosity (read from ParFlow)
 real*8,allocatable::EvapTrans(:,:,:)     ! CLM EvapTrans (read from ParFlow, [1/T] units)
 
-integer Ploc(3)   
+integer Ploc(3)
         ! Particle's location whithin a cell
 
-integer nx   
+integer nx
 integer ny
 integer nz
         ! Domain's number of cells in x, y, and z directions
@@ -134,19 +132,19 @@ integer nz
 integer np_ic, np, np_active
         ! number of particles for intial pulse IC, total, and running active
 
-integer nt  
-        ! number of timesteps ParFlow 
+integer nt
+        ! number of timesteps ParFlow
 
 real*8  pfdt, advdt(3)
         ! ParFlow timesteps, advection DT for each direction used to chose optimal particle tiemstep
 
-integer pfnt 
+integer pfnt
         ! number of ParFlow timesteps
 
-integer kk  
+integer kk
         ! Loop counter for the time steps (pfnt)
 
-integer ii  
+integer ii
         ! Loop counter for the number of particles (np)
 integer iflux_p_res
         ! Number of parricles per cell for flux input
@@ -165,10 +163,10 @@ character*200 runname, filenum, pname, fname
         ! pname = ParFlow output runname
         ! fname = Full name of a ParFlow's output
 
-real*8 Clocx, Clocy, Clocz    
+real*8 Clocx, Clocy, Clocz
         ! The fractional location of each particle within it's grid cell
 
-real*8 V_mult        
+real*8 V_mult
         ! Multiplier for forward/backward particle tracking
         ! If V_mult = 1, forward tracking
         ! If V_mult = -1, backward tracking
@@ -178,22 +176,22 @@ logical clmtrans
         ! will remove particles if ET > 0
 
 real*8 dtfrac, ran1
-        ! fraction of dx/Vx (as well as dy/Vy and dz/Vz) assuring 
+        ! fraction of dx/Vx (as well as dy/Vy and dz/Vz) assuring
         ! numerical stability while advecting a particle to a new
         ! location.
 
-real*8 Xmin, Xmax, Ymin, Ymax, Zmin, Zmax     
-        ! Domain boundaries in real coordinates. min values set to zero, 
+real*8 Xmin, Xmax, Ymin, Ymax, Zmin, Zmax
+        ! Domain boundaries in real coordinates. min values set to zero,
         ! but could be adjusted to match Terrain Following Grid in ParFlow.
 
 real*8 dx, dy
         ! Domain's number of cells in x and y directions
 
-real*8 Vpx, Vpy, Vpz  
+real*8 Vpx, Vpy, Vpz
         ! Particle velocity in x, y, and z directions
 
 real*8 particledt, delta_time
-        ! The time it takes for a particle to displace from 
+        ! The time it takes for a particle to displace from
         ! one location to another and the local particle from-to time
         ! for each PF timestep
 
@@ -217,12 +215,12 @@ integer, allocatable:: ET_np(:), Out_np(:)
 real*8  ET_dt
         ! time interval for ET
 
-!--------------------------------------------------------------------        
+!--------------------------------------------------------------------
 ! (2) Read inputs, set up domain, write the log file, and
 ! initialize particles
 !--------------------------------------------------------------------
 
-! Note: The following file numbers refer to 
+! Note: The following file numbers refer to
 !
 !       - #10: slimin.txt
 !       - #11: runname_log.txt
@@ -329,8 +327,8 @@ end do
 
 ! Uncomment the following line if all particles are wanted
 ! to exit the domain -- holds only for steady state case.
-! For unsteady case, only holds if the maximum of all 
-! particles travel time is less or equal than the ParFlow 
+! For unsteady case, only holds if the maximum of all
+! particles travel time is less or equal than the ParFlow
 ! running time.
 
 !Time_Next(pfnt) = Time_Next(pfnt-1) + 1.0E15
@@ -423,26 +421,26 @@ call pfb_read(Porosity,fname,nx,ny,nz)
 flush(11)
 
 
-!--------------------------------------------------------------------        
-! (3) For each timestep, loop over all particles to find and 
-!     update their new locations 
+!--------------------------------------------------------------------
+! (3) For each timestep, loop over all particles to find and
+!     update their new locations
 !--------------------------------------------------------------------
 
 ! loop over timesteps
-do kk = 1, pfnt  
-       
+do kk = 1, pfnt
+
         ! Read the velocities computed by ParFlow
         write(filenum,'(i5.5)') kk
-                
+
         fname=trim(adjustl(pname))//'.out.velx.'//trim(adjustl(filenum))//'.pfb'
         call pfb_read(Vx,fname,nx+1,ny,nz)
-  
+
         fname=trim(adjustl(pname))//'.out.vely.'//trim(adjustl(filenum))//'.pfb'
         call pfb_read(Vy,fname,nx,ny+1,nz)
-        
+
         fname=trim(adjustl(pname))//'.out.velz.'//trim(adjustl(filenum))//'.pfb'
         call pfb_read(Vz,fname,nx,ny,nz+1)
-        
+
         fname=trim(adjustl(pname))//'.out.satur.'//trim(adjustl(filenum))//'.pfb'
         call pfb_read(Saturation,fname,nx,ny,nz)
 
@@ -589,17 +587,17 @@ do kk = 1, pfnt
                         do k = 1, Ploc(3)
                                 Z = Z + dz(k)
                         end do
-                        Clocz = (P(ii,3) - Z) / dz(Ploc(3) + 1)  
+                        Clocz = (P(ii,3) - Z) / dz(Ploc(3) + 1)
 
-                        ! Calculate local particle velocity using linear interpolation, 
+                        ! Calculate local particle velocity using linear interpolation,
                         ! converting darcy flux to average linear velocity
-                        
+
                         Vpx = ((1.0d0-Clocx)*Vx(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) + Vx(Ploc(1)+2,Ploc(2)+1,Ploc(3)+1)*Clocx)  &
                               /(Porosity(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)*Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))
-                        
+
                         Vpy =  ((1.0d0-Clocy)*Vy(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) + Vy(Ploc(1)+1,Ploc(2)+2,Ploc(3)+1)*Clocy) &
                               /(Porosity(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)*Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))
-                        
+
                         Vpz = ((1.0d0-Clocz)*Vz(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) + Vz(Ploc(1)+1,Ploc(2)+1,Ploc(3)+2)*Clocz)  &
                               /(Porosity(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)*Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))
 
@@ -677,7 +675,7 @@ do kk = 1, pfnt
 !!  Apply fractionation if we are in the top cell
 !!
                         if (Ploc(3) == nz-1)  P(ii,9) = P(ii,9) -Efract*particledt*100.
-                        ! changes made in Ploc           
+                        ! changes made in Ploc
                        if(Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) == 1.0) P(ii,5) = P(ii,5) + particledt
                         ! simple reflection
                         if (P(ii,3) >=Zmax) P(ii,3) = Zmax- (P(ii,3) - Zmax)
