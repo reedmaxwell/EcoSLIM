@@ -9,6 +9,7 @@ EcoSLIM
 #### Developed Team
 + Reed Maxwell <rmaxwell@mines.edu>
 + Mohammad Danesh-Yazdi <danesh@mines.edu>
++ Laura Condon <lecondon@syr.edu>
 + Lindsay Bearup <lbearup@usbr.gov>
 
 
