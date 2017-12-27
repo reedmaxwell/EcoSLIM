@@ -73,8 +73,9 @@
 !--------------------------------------------------------------------
 
 
-program SLIM2
-
+program EcoSLIM
+use ran_mod
+implicit none
 !--------------------------------------------------------------------
 ! (1) Define variables
 !--------------------------------------------------------------------
@@ -105,6 +106,10 @@ real*8,allocatable::Vz(:,:,:)
         ! Vy = Velocity y-direction [nx,ny+1,nz] -- ParFlow output
         ! Vz = Velocity z-direction [nx,ny,nz+1] -- ParFlow output
 
+!real*8,allocatable::C(:,:,:,:)
+        ! Concentration array, in i,j,k with l (first index) as consituent or
+        ! property.  These are set by user at runtime using input
+
 real*8,allocatable::Time_Next(:)
         ! Vector of real times at which ParFlow dumps outputs
 
@@ -133,7 +138,7 @@ integer nz
 integer np_ic, np, np_active
         ! number of particles for intial pulse IC, total, and running active
 
-integer nt
+integer nt, n_constituents
         ! number of timesteps ParFlow
 
 real*8  pfdt, advdt(3)
@@ -153,10 +158,10 @@ integer i
 integer j
 integer k
 integer l
-integer ik
+integer ik, ji, OMP_GET_THREAD_NUM
 integer itime_loc
         ! Local indices within the code (x, y, z, vector)
-integer ir
+integer*4 ir
 
 character*200 runname, filenum, pname, fname
         ! runname = SLIM runname
@@ -164,8 +169,9 @@ character*200 runname, filenum, pname, fname
         ! pname = ParFlow output runname
         ! fname = Full name of a ParFlow's output
 
-real*8 Clocx, Clocy, Clocz
+real*8 Clocx, Clocy, Clocz, Z
         ! The fractional location of each particle within it's grid cell
+        ! Particle Z location
 
 real*8 V_mult
         ! Multiplier for forward/backward particle tracking
@@ -176,7 +182,7 @@ logical clmtrans
         ! logical for mode of operation wirth CLM, will add particles with P-ET > 0
         ! will remove particles if ET > 0
 
-real*8 dtfrac, ran1
+real*8 dtfrac
         ! fraction of dx/Vx (as well as dy/Vy and dz/Vz) assuring
         ! numerical stability while advecting a particle to a new
         ! location.
@@ -202,19 +208,28 @@ real*8 local_flux, et_flux, water_vol, Zr, z1, z2, z3
         ! The availble water volume in a cell
         ! random variable
 
-real*8 Xlow, Xhi, Ylow, Yhi, Zlo, Zhi
+real*8 Xlow, Xhi, Ylow, Yhi, Zlow, Zhi
         ! Particles initial locations i.e., where they are injected
         ! into the domain.
 
 ! density of water (M/L3), molecular diffusion (L2.T), fractionation
-real*8 denh2o, moldiff, Efract
+real*8 denh2o, moldiff, Efract  !, ran1
 
 real*8, allocatable::ET_age(:,:), ET_mass(:,:), ET_comp(:,:)
 real*8, allocatable::Out_age(:,:), Out_mass(:,:), Out_comp(:,:)
 integer, allocatable:: ET_np(:), Out_np(:)
 ! time history of ET, time (1,:) and mass for rain (2,:), snow (3,:)
-real*8  ET_dt
+real*8  ET_dt, DR_Temp
         ! time interval for ET
+integer  T1, T2, ipwrite
+
+!interface
+!  function ran1(idum)
+!  real*8 ran1
+!  integer, intent(inout), optional :: idum
+!  end function ran1
+!end interface
+        call system_clock(T1)
 
 !--------------------------------------------------------------------
 ! (2) Read inputs, set up domain, write the log file, and
@@ -318,6 +333,7 @@ Out_age = 0.0d0
 Out_mass = 0.0d0
 Out_comp = 0.0d0
 Out_np = 0
+ipwrite = 0
 
 ! allocate and assign timesteps
 allocate(Time_Next(pfnt))
@@ -400,14 +416,14 @@ write(11,*) 'Zmin:',Zmin,' Zmax:',Zmax
 !! Define initial particles' locations
 
 PInLoc=0.0d0
-call srand(333)
-ir = 3333
+!call srand(333)
+ir = -3333
 do ii = 1, np_ic
-        P(ii,1) = Xlow+rand()*(Xhi-Xlow)
+        P(ii,1) = Xlow+ran1(ir)*(Xhi-Xlow)
         PInLoc(ii,1) = P(ii,1)
-        P(ii,2) = Ylow+rand()*(Yhi-Ylow)
+        P(ii,2) = Ylow+ran1(ir)*(Yhi-Ylow)
         PInLoc(ii,2) = P(ii,2)
-        P(ii,3) = Zlow+rand()*(Zhi-Zlow)
+        P(ii,3) = Zlow+ran1(ir)*(Zhi-Zlow)
         PInLoc(ii,3) = P(ii,3)
 end do
 flush(11)
@@ -422,10 +438,12 @@ call pfb_read(Porosity,fname,nx,ny,nz)
 flush(11)
 
 
+
 !--------------------------------------------------------------------
 ! (3) For each timestep, loop over all particles to find and
 !     update their new locations
 !--------------------------------------------------------------------
+
 
 ! loop over timesteps
 do kk = 1, pfnt
@@ -477,11 +495,11 @@ do kk = 1, pfnt
         PInLoc(ii,1) = P(ii,1)
         P(ii,2) = float(j-1)*dy  +rand()*dy
         PInLoc(ii,2) = P(ii,2)
-        z = 0.0d0
+        Z = 0.0d0
         do ik = 1, k
-        z = z + dz(ik)
+        Z = Z + dz(ik)
         end do
-        P(ii,3) = z  -dz(k)*rand()
+        P(ii,3) = Z -dz(k)*rand()
         PInLoc(ii,3) = P(ii,3)
         !print*, P(ii,1), P(ii,2), P(ii,3), z, k
         ! assign zero time and flux of water
@@ -505,52 +523,68 @@ do kk = 1, pfnt
         write(11,*) ' Time Step: ',Time_Next(kk),' NP Active:',np_active
         flush(11)
 
-    ! open/create/write the 3D output file
-    open(14,file=trim(runname)//'_transient_particle.'//trim(adjustl(filenum))//'.3D')
-    write(14,*) 'X Y Z TIME'
-    flush(14)
-        ! loop over active particles
+
+! Set up parallel section and define
+! private, local variables used only in this code subsection
+!$OMP PARALLEL PRIVATE(Ploc, k, l, ik, Clocx, Clocy, Clocz, Vpx, Z, z1, z2, z3)   &
+!$OMP& PRIVATE(Vpy, Vpz, particledt, delta_time,local_flux, et_flux)  &
+!$OMP& PRIVATE(water_vol, Zr, itime_loc, advdt, DR_Temp, ir) &
+!$OMP& SHARED(EvapTrans, Vx, Vy, Vz, P, Saturation, Porosity, dx, dy, dz, denh2o) &
+!$OMP& SHARED(np_active, pfdt, nz, nx, ny, xmin, ymin, zmin, xmax, ymax, zmax)  &
+!$OMP& SHARED(kk, pfnt, out_age, out_mass, out_comp, out_np, dtfrac, et_age, et_mass) &
+!$OMP& SHARED(et_comp, et_np, moldiff, efract) &
+!$OMP& Default(private)
+
+! loop over active particles
+!$OMP DO
         do ii = 1, np_active
         !! skip inactive particles still allocated
+        !! set random seed for each particle based on timestep and particle number
+        ir = -(932117 + ii + 100*kk)
         if(P(ii,8) == 1.0) then
                 delta_time = P(ii,4) + pfdt
-                do while (P(ii,4) < delta_time)
+                do while (P(ii,4) <= delta_time)
 
                         ! Find the "adjacent" "cell corresponding to the particle's location
                         Ploc(1) = floor(P(ii,1) / dx)
                         Ploc(2) = floor(P(ii,2) / dy)
 
-                        z = 0.0d0
+                        Z = 0.0d0
                         do k = 1, nz
-                                z = z + dz(k)
-                                if (z >= P(ii,3)) then
+                                DR_Temp = Z
+                                Z = DR_Temp + dz(k)
+                                if (Z >= P(ii,3)) then
                                         Ploc(3) = k - 1
                                         exit
                                 end if
                         end do
 
-                ! check to make sure particels are in central part of the domain and if not
+                ! check to make sure particles are in central part of the domain and if not
                 ! apply some boundary condition to them
                 !! check if particles are in domain, need to expand this to include better treatment of BC's
                 if ((P(ii,1) < Xmin).or.(P(ii,2)<Ymin).or.(P(ii,3)<Zmin).or.    &
                 (P(ii,1)>=Xmax).or.(P(ii,2)>=Ymax).or.(P(ii,3)>=Zmax)) then
 
                  ! if outflow at the top add to the outflow age
-                z = 0.0d0
+                Z = 0.0d0
                 do k = 1, nz
-                z = z + dz(k)
+                Z = Z + dz(k)
                 end do
-                if ( (P(ii,3) >= z-dz(nz)/2.0d0).and.   &
+                if ( (P(ii,3) >= Z-dz(nz)/2.0d0).and.   &
                 (Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)  == 1.0) ) then
                 itime_loc = kk
                 if (itime_loc <= 0) itime_loc = 1
                 if (itime_loc >= pfnt) itime_loc = pfnt
+                !$OMP ATOMIC
                 Out_age(itime_loc,1) = Out_age(itime_loc,1) + P(ii,4)
+                !$OMP ATOMIC
                 Out_mass(itime_loc,1) = Out_mass(itime_loc,1)  + P(ii,6)
+                !$OMP ATOMIC
                 Out_comp(itime_loc,1) = Out_comp(itime_loc,1) + P(ii,7)
+                !$OMP ATOMIC
                 Out_np(itime_loc) = Out_np(itime_loc) + 1
 
-               write(22,220) Time_Next(kk), P(ii,1), P(ii,2), P(ii,3), P(ii,4), P(ii,6), P(ii,7)
+!               write(22,220) Time_Next(kk), P(ii,1), P(ii,2), P(ii,3), P(ii,4), P(ii,6), P(ii,7)
     220         FORMAT(7(e12.5))
                 flush(21)
 !                !flag particle as inactive
@@ -631,7 +665,7 @@ do kk = 1, pfnt
                         ! water volume in cell
                         water_vol = dx*dy*dz(Ploc(3)+1)*(Porosity(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)  &
                         *Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))
-                        Zr = ran1(ir)
+!                        Zr = ran1(ir)
 !                        print*, P(ii,6),P(ii,7),et_flux, water_vol, et_flux*particledt*denh2o !Zr,(et_flux*particledt)/water_vol,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1
   !                      if (Zr < ((et_flux*particledt)/water_vol)) then   ! check if particle is 'captured' by the roots
 
@@ -640,15 +674,21 @@ do kk = 1, pfnt
 !                        print*, itime_loc, P(ii,4), ET_dt
                         if (itime_loc <= 0) itime_loc = 1
                         if (itime_loc >= pfnt) itime_loc = pfnt
+                        !  this section made atomic since it could inovlve a data race
+                        !$OMP ATOMIC
                         ET_age(itime_loc,1) = ET_age(itime_loc,1) + P(ii,4)
+                        !$OMP ATOMIC
                         ET_mass(itime_loc,1) = ET_mass(itime_loc,1)  + et_flux*particledt*denh2o  ! P(ii,6)
+                        !$OMP ATOMIC
                         ET_comp(itime_loc,1) = ET_comp(itime_loc,1) + P(ii,7)
+                        !$OMP ATOMIC
                         ET_np(itime_loc) = ET_np(itime_loc) + 1
                         ! subtract flux from particle, remove from domain
+
                         P(ii,6) = P(ii,6) - et_flux*particledt*denh2o
 
                         if (P(ii,6) <= 0.0d0) then
-                        write(21,220) Time_Next(kk), P(ii,1), P(ii,2), P(ii,3), P(ii,4), et_flux*particledt*denh2o, P(ii,7)
+!                        write(21,220) Time_Next(kk), P(ii,1), P(ii,2), P(ii,3), P(ii,4), et_flux*particledt*denh2o, P(ii,7)
                         flush(21)
                             P(ii,8) = 0.0d0
                             goto 999
@@ -658,16 +698,18 @@ do kk = 1, pfnt
 
                         ! Advect particle to new location using Euler advection until next time
 
-                        ! Update particle location
+                        ! Update particle location, this won't involve a data race
+
                         P(ii,1) = P(ii,1) + particledt * Vpx
                         P(ii,2) = P(ii,2) + particledt * Vpy
                         P(ii,3) = P(ii,3) + particledt * Vpz
                         P(ii,4) = P(ii,4) + particledt
 
                         ! Molecular Diffusion
-                        z1 = 2.d0*DSQRT(3.0D0)*(rand()-0.5D0)
-                        z2 = 2.d0*DSQRT(3.0D0)*(rand()-0.5D0)
-                        z3 = 2.d0*DSQRT(3.0D0)*(rand()-0.5D0)
+
+                        z1 = 2.d0*DSQRT(3.0D0)*(ran1(ir)-0.5D0)
+                        z2 = 2.d0*DSQRT(3.0D0)*(ran1(ir)-0.5D0)
+                        z3 = 2.d0*DSQRT(3.0D0)*(ran1(ir)-0.5D0)
 
                         P(ii,1) = P(ii,1) + z1 * DSQRT(moldiff*2.0D0*particledt)
                         P(ii,2) = P(ii,2) + z2 * DSQRT(moldiff*2.0D0*particledt)
@@ -677,7 +719,7 @@ do kk = 1, pfnt
 !!
                         if (Ploc(3) == nz-1)  P(ii,9) = P(ii,9) -Efract*particledt*100.
                         ! changes made in Ploc
-                       if(Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) == 1.0) P(ii,5) = P(ii,5) + particledt
+                        if(Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) == 1.0) P(ii,5) = P(ii,5) + particledt
                         ! simple reflection
                         if (P(ii,3) >=Zmax) P(ii,3) = Zmax- (P(ii,3) - Zmax)
                         if (P(ii,1) >=Xmax) P(ii,1) = Xmax- (P(ii,1) - Xmax)
@@ -686,19 +728,38 @@ do kk = 1, pfnt
                         if (P(ii,3) <=Zmin) P(ii,3) = Zmin+ (Zmin - P(ii,3) )
                         if (P(ii,1) <=Xmin) P(ii,1) = Xmin+ (Xmin - P(ii,1) )
 
-                    write(14,61) P(ii,1), P(ii,2), P(ii,3), P(ii,9)
+!                    write(14,61) P(ii,1), P(ii,2), P(ii,3), P(ii,9)
 
                 end do  ! end of do-while loop for particle time to next time
         999 continue   ! where we go if the particle is out of bounds
+
         end if   !! check if particle is active
         ! format statements lying around, should redo the way this is done
         61  FORMAT(4(e12.5))
         62  FORMAT(4(e12.5))
         end do !  ii,  end particle loop
+        !$OMP END DO NOWAIT
+        !$OMP FLUSH
+        !$OMP END PARALLEL
+! write all active particles at concentration
 
+
+if(ipwrite == 1) then
+! open/create/write the 3D output file
+open(14,file=trim(runname)//'_transient_particle.'//trim(adjustl(filenum))//'.3D')
+write(14,*) 'X Y Z TIME'
+!flush(14)
+do ii = 1, np_active
+if (P(ii,8) == 1) write(14,61) P(ii,1), P(ii,2), P(ii,3), P(ii,4)
+end do
 close(14)
+end if
 
+  n_constituents = 1
 
+!if(icwrite == 1)
+
+!  call vtk_write(time,C,conc_header,nx,ny,nz,dx,dy,dz,kk,n_constituents,DEM,vtk_file)
 
 end do !! timesteps
 
@@ -719,6 +780,17 @@ flush(13)
 ! close end particle file
 close(13)
 
+
+! Create/open/write the final particles' locations and residence time
+open(13,file=trim(runname)//'_endparticle.3D')
+write(13,*) 'X Y Z TIME'
+do ii = 1, np_active
+        write(13,65)  P(ii,1), P(ii,2), P(ii,3), P(ii,4)
+        65  FORMAT(4(e12.5))
+end do
+flush(13)
+! close end particle file
+close(13)
 !! write ET files
 !
 open(13,file=trim(runname)//'_ET_output.txt')
@@ -755,56 +827,27 @@ close(13)
 ! close the log file
 close(11)
 
+        call system_clock(T2)
 
-end program SLIM2
-
-!
+        print*, 'Time:',T2-T1
+   end program EcoSLIM
+   !
 !-----------------------------------------------------------------------
 !     function to generate pseudo random numbers, uniform (0,1)
 !-----------------------------------------------------------------------
 !
-function rand2(iuu)
+!function rand2(iuu)
 !
-real*8 rand2,rssq,randt
-integer m,l,iuu
+!real*8 rand2,rssq,randt
+!integer m,l,iuu
 
 !
-data m/1048576/
-data l/1027/
-n=l*iuu
-iuu=mod(n,m)
-rand2=float(iuu)/float(m)
+!data m/1048576/
+!data l/1027/
+!n=l*iuu
+!iuu=mod(n,m)
+!rand2=float(iuu)/float(m)
 !    rand2 = rand(0)
-iiu = iiu + 2
-return
-end
-
-!
-FUNCTION ran1(idum)
-INTEGER*4 idum,IA,IM,IQ,IR,NTAB,NDIV
-REAL*8 ran1,AM,EPS,RNMX
-PARAMETER (IA=16807,IM=2147483647,AM=1./IM,IQ=127773,IR=2836,  &
-NTAB=32,NDIV=1+(IM-1)/NTAB,EPS=1.2e-7,RNMX=1.-EPS)
-INTEGER j,k,iv(NTAB),iy
-SAVE iv,iy
-DATA iv /NTAB*0/, iy /0/
-if (idum.le.0.or.iy.eq.0) then
-idum=max(-idum,1)
-do 11 j=NTAB+8,1,-1
-k=idum/IQ
-idum=IA*(idum-k*IQ)-IR*k
-if (idum.lt.0) idum=idum+IM
-if (j.le.NTAB) iv(j)=idum
-11      continue
-iy=iv(1)
-endif
-k=idum/IQ
-idum=IA*(idum-k*IQ)-IR*k
-if (idum.lt.0) idum=idum+IM
-
-j=1+iy/NDIV
-iy=iv(j)
-iv(j)=idum
-ran1=min(AM*iy,RNMX)
-return
-END
+!iiu = iiu + 2
+!return
+!end

@@ -1,15 +1,16 @@
-# EcoSLIM
-EcoSLIM private repo for development.  Will be public repo under /ParFlow when published
+EcoSLIM
+=======
+
+**EcoSLIM** private repo for development.  Will be public repo under /ParFlow when published
 
 
- SLIM2 is a Lagrangian, particle-tracking model for simulating subsurface and surface transport of reactive (such as microbial agents and metals) and non-reactive contaminants, diagnosing travel times, paths etc., which integrates seamlessly with ParFlow.
+**EcoSLIM** is a Lagrangian, particle-tracking that simulates advective and diffusive movement of water parcels.  This code can be used to simulate age, diagnosing travel times, source water composition and flowpaths.  It integrates seamlessly with **ParFlow-CLM**.
 
- Developed by: Reed Maxwell-August 2016 (rmaxwell@mines.edu)
+#### Developed Team
++ Reed Maxwell <rmaxwell@mines.edu>
++ Mohammad Danesh-Yazdi <danesh@mines.edu>
++ Lindsay Bearup <lbearup@usbr.gov>
 
- Contributors: Mohammad Danesh-Yazdi (danesh@mines.edu)
 
 
-
- slimin.txt: Includes the domain's geometric information,
-             ParFlow timesteps and their total number, and particles
-             initial locations.
+`slimin.txt`  Main input file. Includes domain geometry, **ParFlow** timing and input, total number of particles,   initial conditions and information about **CLM**.
