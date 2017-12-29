@@ -106,34 +106,31 @@ real*8,allocatable::Vz(:,:,:)
         ! Vy = Velocity y-direction [nx,ny+1,nz] -- ParFlow output
         ! Vz = Velocity z-direction [nx,ny,nz+1] -- ParFlow output
 
-!real*8,allocatable::C(:,:,:,:)
+real*8,allocatable::C(:,:,:,:)
         ! Concentration array, in i,j,k with l (first index) as consituent or
         ! property.  These are set by user at runtime using input
-
+CHARACTER (LEN=20)     :: conc_header(:)
+        ! name for variables written in the C array above.  Dimensioned as l above.
 real*8,allocatable::Time_Next(:)
         ! Vector of real times at which ParFlow dumps outputs
 
-real*8,allocatable::dz(:)
-        ! Vector of depths in z-direction wrt the bottom of domain
-        ! Note: The model can handle variable depths, but assumes
-        !       uniform spacing in x and y directions.
+real*8,allocatable::dz(:), Zt(:)
+        ! Delta Z values in the vertical direction
+        ! Elevations in z-direction in local coordinates
 
-real*8,allocatable::Sx(:,:)  ! Sx: Slopes in x-direction
-real*8,allocatable::Sy(:,:)  ! Sy: Slopes in y-direction
+real*8,allocatable::Sx(:,:)  ! Sx: Slopes in x-direction (not used)
+real*8,allocatable::Sy(:,:)  ! Sy: Slopes in y-direction (not used)
 
-
-
-real*8,allocatable::Saturation(:,:,:)   ! Saturation (read from ParFlow)
-real*8,allocatable::Porosity(:,:,:)     ! Porosity (read from ParFlow)
+real*8,allocatable::Saturation(:,:,:)    ! Saturation (read from ParFlow)
+real*8,allocatable::Porosity(:,:,:)      ! Porosity (read from ParFlow)
 real*8,allocatable::EvapTrans(:,:,:)     ! CLM EvapTrans (read from ParFlow, [1/T] units)
+real*8, allocatable::Pnts(:,:), DEM(:,:) ! DEM and grid points for concentration output
 
 integer Ploc(3)
         ! Particle's location whithin a cell
 
-integer nx
-integer ny
-integer nz
-        ! Domain's number of cells in x, y, and z directions
+integer nx, nnx, ny, nny, nz, nnz
+        ! number of cells in the domain and cells+1 in x, y, and z directions
 
 integer np_ic, np, np_active
         ! number of particles for intial pulse IC, total, and running active
@@ -142,32 +139,28 @@ integer nt, n_constituents
         ! number of timesteps ParFlow
 
 real*8  pfdt, advdt(3)
-        ! ParFlow timesteps, advection DT for each direction used to chose optimal particle tiemstep
+        ! ParFlow timestep value, advection timestep for each direction
+        ! for each individual particle step; used to chose optimal particle timestep
 
 integer pfnt
         ! number of ParFlow timesteps
-
 integer kk
         ! Loop counter for the time steps (pfnt)
-
 integer ii
         ! Loop counter for the number of particles (np)
 integer iflux_p_res
-        ! Number of parricles per cell for flux input
-integer i
-integer j
-integer k
-integer l
-integer ik, ji, OMP_GET_THREAD_NUM
+        ! Number of particles per cell for flux input
+integer i, j, k, l, ik, ji, m
 integer itime_loc
-        ! Local indices within the code (x, y, z, vector)
+        ! Local indices / counters
 integer*4 ir
 
-character*200 runname, filenum, pname, fname
+character*200 runname, filenum, pname, fname, vtk_file
         ! runname = SLIM runname
         ! filenum = ParFlow file number
         ! pname = ParFlow output runname
         ! fname = Full name of a ParFlow's output
+        ! vtk_file = concentration file
 
 real*8 Clocx, Clocy, Clocz, Z
         ! The fractional location of each particle within it's grid cell
@@ -188,8 +181,8 @@ real*8 dtfrac
         ! location.
 
 real*8 Xmin, Xmax, Ymin, Ymax, Zmin, Zmax
-        ! Domain boundaries in real coordinates. min values set to zero,
-        ! but could be adjusted to match Terrain Following Grid in ParFlow.
+        ! Domain boundaries in local / grid coordinates. min values set to zero,
+        ! DEM is read in later to output to Terrain Following Grid used by ParFlow.
 
 real*8 dx, dy
         ! Domain's number of cells in x and y directions
@@ -212,7 +205,7 @@ real*8 Xlow, Xhi, Ylow, Yhi, Zlow, Zhi
         ! Particles initial locations i.e., where they are injected
         ! into the domain.
 
-! density of water (M/L3), molecular diffusion (L2.T), fractionation
+! density of water (M/L3), molecular diffusion (L2/T), fractionation
 real*8 denh2o, moldiff, Efract  !, ran1
 
 real*8, allocatable::ET_age(:,:), ET_mass(:,:), ET_comp(:,:)
@@ -223,12 +216,24 @@ real*8  ET_dt, DR_Temp
         ! time interval for ET
 integer  T1, T2, ipwrite
 
-!interface
-!  function ran1(idum)
-!  real*8 ran1
-!  integer, intent(inout), optional :: idum
-!  end function ran1
-!end interface
+interface
+  SUBROUTINE vtk_write(time,x,conc_header,ixlim,iylim,izlim,icycle,n_constituents,Pnts,vtk_file)
+  real*8                 :: time
+  REAL*4    :: x(:,:,:,:)
+  CHARACTER (LEN=20)     :: conc_header(:)
+  INTEGER*4 :: ixlim
+  INTEGER*4 :: iylim
+  INTEGER*4 :: izlim
+  REAL*8                 :: dx
+  REAL*8                 :: dy
+  REAL*8                 :: dz(izlim)
+  REAL*8                 :: Pnts(:,:)
+  INTEGER                :: icycle
+  INTEGER*4              :: n_constituents
+  CHARACTER (LEN=200)    :: vtk_file
+end subroutine vtk_write
+end interface
+
         call system_clock(T1)
 
 !--------------------------------------------------------------------
@@ -243,8 +248,6 @@ integer  T1, T2, ipwrite
 !       - #12: runname_particle.3D (visualizes particles in VisIT)
 !       - #13: runname_endparticle.txt
 !       - #14: runname_transient_particle.XXX.3D  (visualizes particles in VisIT, one per timetep)
-!
-! See README_SLIM2.txt for detailes on the above files.
 
 
 ! open SLIM input .txt file
@@ -253,11 +256,8 @@ open (10,file='slimin.txt')
 ! read SLIM run name
 read(10,*) runname
 
-!print*, runname
-
 ! read ParFlow run name
 read(10,*) pname
-!print*, pname
 
 ! open/create/write the output log.txt file. If doesn't exist, it's created.
 open(11,file=trim(runname)//'_log.txt')
@@ -301,11 +301,29 @@ allocate(P(np,10))
 P(1:np,1:6) = 0    ! clear out all particle attributes
 P(1:np,7:9) = 1.0  ! make all particles active to start with and original from 1 = GW/IC
 
+! grid +1 variables
+nnx=nx+1
+nny=ny+1
+nnz=nz+1
+
+!  number of things written to C array, hard wired at 2 now for Testing
+n_constituents = 3
+!allocate arrays
 allocate(PInLoc(np,3))
-allocate(Sx(nx,ny),Sy(nx,ny))
-allocate(dz(nz))
-allocate(Vx(nx+1,ny,nz), Vy(nx,ny+1,nz), Vz(nx,ny,nz+1))
-allocate(Saturation(nx,ny,nz), Porosity(nx,ny,nz),EvapTrans(nx,ny,nz))
+allocate(Sx(nx,ny),Sy(nx,ny), DEM(nx,ny))
+allocate(dz(nz), Zt(nz))
+allocate(Vx(nnx,ny,nz), Vy(nx,nny,nz), Vz(nx,ny,nnz))
+allocate(Saturation(nx,ny,nz), Porosity(nx,ny,nz),EvapTrans(nx,ny,nz), C(n_constituents,nx,ny,nz))
+allocate(conc_header(n_constituents))
+!Intialize everything to Zero
+Vx = 0.0d0
+Vy = 0.0d0
+Vz = 0.0d0
+DEM = 0.0D0
+Saturation = 0.0D0
+Porosity = 0.0D0
+EvapTrans = 0.0d0
+C = 0.0d0
 
 ! read dx, dy as scalars
 read(10,*) dx
@@ -413,6 +431,52 @@ write(11,*) 'Xmin:',Xmin,' Xmax:',Xmax
 write(11,*) 'Ymin:',Ymin,' Ymax:',Ymax
 write(11,*) 'Zmin:',Zmin,' Zmax:',Zmax
 
+
+!! DEM set to zero but will be read in as input
+
+!! Set up grid locations for file output
+npnts=nnx*nny*nnz
+ncell=nx*ny*nz
+
+allocate(Pnts(npnts,3))
+Pnts=0
+m=1
+
+! Need the maximum height of the model and elevation locations
+Z = 0.0d0
+Zt = 0.0D0
+do ik = 1, nz
+Z = Z + dz(ik)
+Zt(ik) = Z
+end do
+maxz=Z
+
+!! candidate loops for OpenMP
+do k=1,nnz
+ do j=1,nny
+  do i=1,nnx
+   Pnts(m,1)=x1+DBLE(i-1)*dx
+   Pnts(m,2)=y1+DBLE(j-1)*dy
+! This is a simple way of handling the maximum edges
+   if (i <= nx) then
+   ii=i
+   else
+   ii=nx
+   endif
+   if (j <= ny) then
+   jj=j
+   else
+   jj=ny
+   endif
+   ! This step translates the DEM
+   ! The specified initial heights in the pfb (z1) are ignored and the
+   !  offset is computed based on the model thickness
+   Pnts(m,3)=(DEM(ii,jj)-maxZ)+Zt(k)
+   m=m+1
+  end do
+ end do
+end do
+
 !! Define initial particles' locations
 
 PInLoc=0.0d0
@@ -486,20 +550,19 @@ do kk = 1, pfnt
         if (EvapTrans(i,j,k)> 0.0d0)  then
         if (Saturation(i,j,k)< 1.0d0)  then
         do ji = 1, iflux_p_res
-        !  check if we have particles left
         if (np_active < np) then   ! check if we have particles left
         np_active = np_active + 1
         ii = np_active
         ! assign X, Y, Z locations to recharge cell
-        P(ii,1) = float(i-1)*dx  +rand()*dx
+        P(ii,1) = float(i-1)*dx  +ran1(ir)*dx
         PInLoc(ii,1) = P(ii,1)
-        P(ii,2) = float(j-1)*dy  +rand()*dy
+        P(ii,2) = float(j-1)*dy  +ran1(ir)*dy
         PInLoc(ii,2) = P(ii,2)
         Z = 0.0d0
         do ik = 1, k
         Z = Z + dz(ik)
         end do
-        P(ii,3) = Z -dz(k)*rand()
+        P(ii,3) = Z -dz(k)*ran1(ir)
         PInLoc(ii,3) = P(ii,3)
         !print*, P(ii,1), P(ii,2), P(ii,3), z, k
         ! assign zero time and flux of water
@@ -532,7 +595,7 @@ do kk = 1, pfnt
 !$OMP& SHARED(EvapTrans, Vx, Vy, Vz, P, Saturation, Porosity, dx, dy, dz, denh2o) &
 !$OMP& SHARED(np_active, pfdt, nz, nx, ny, xmin, ymin, zmin, xmax, ymax, zmax)  &
 !$OMP& SHARED(kk, pfnt, out_age, out_mass, out_comp, out_np, dtfrac, et_age, et_mass) &
-!$OMP& SHARED(et_comp, et_np, moldiff, efract) &
+!$OMP& SHARED(et_comp, et_np, moldiff, efract, C) &
 !$OMP& Default(private)
 
 ! loop over active particles
@@ -551,8 +614,7 @@ do kk = 1, pfnt
 
                         Z = 0.0d0
                         do k = 1, nz
-                                DR_Temp = Z
-                                Z = DR_Temp + dz(k)
+                                Z = Z + dz(k)
                                 if (Z >= P(ii,3)) then
                                         Ploc(3) = k - 1
                                         exit
@@ -728,6 +790,26 @@ do kk = 1, pfnt
                         if (P(ii,3) <=Zmin) P(ii,3) = Zmin+ (Zmin - P(ii,3) )
                         if (P(ii,1) <=Xmin) P(ii,1) = Xmin+ (Xmin - P(ii,1) )
 
+                        !! concentration routine
+                        ! Find the "adjacent" "cell corresponding to the particle's location
+                        Ploc(1) = floor(P(ii,1) / dx)
+                        Ploc(2) = floor(P(ii,2) / dy)
+                        Z = 0.0d0
+                        do k = 1, nz
+                                Z = Z + dz(k)
+                                if (Z >= P(ii,3)) then
+                                        Ploc(3) = k - 1
+                                        exit
+                                end if
+                        end do
+                        !$OMP Critical
+                        C(1,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) = C(1,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) + P(ii,6) / &
+                        dx*dy*dz(Ploc(3)+1)*(Porosity(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)  &
+                        *Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))
+                        !$OMP Critical
+                        C(2,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) = C(1,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) + P(ii,4)*P(ii,6)
+                        !$OMP Critical
+                        C(3,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) = C(3,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) + P(ii,6)
 !                    write(14,61) P(ii,1), P(ii,2), P(ii,3), P(ii,9)
 
                 end do  ! end of do-while loop for particle time to next time
@@ -755,11 +837,16 @@ end do
 close(14)
 end if
 
-  n_constituents = 1
+  C(2,:,:,:) = C(2,:,:,:) / C(3,:,:,:)
+  n_constituents = 3
+  icwrite = 1
+vtk_file=trim(runname)//'_cgrid.'//trim(adjustl(filenum))//'.VTK'
+conc_header(1) = 'Concentration'
+conc_header(2) = 'Age'
+conc_header(3) = 'Mass'
 
-!if(icwrite == 1)
-
-!  call vtk_write(time,C,conc_header,nx,ny,nz,dx,dy,dz,kk,n_constituents,DEM,vtk_file)
+if(icwrite == 1)  &
+call vtk_write(Time_Next(kk),C,conc_header,nx,ny,nz,Pnts,kk,n_constituents,vtk_file)
 
 end do !! timesteps
 
