@@ -556,8 +556,8 @@ do kk = 1, pfnt
         ! check overall if we are out of particles (we do this twice once for speed, again for array)
         if (np_active < np) then
         ! loop over top of domain, need to make this more flexible in input for 2D cases, etc
-        do i = 2, nx-1
-        do j = 2, ny-1
+        do i = 1, nx
+        do j = 1, ny
         do k = 1, nz
         if (EvapTrans(i,j,k)> 0.0d0)  then
         if (Saturation(i,j,k)< 1.0d0)  then
@@ -613,12 +613,13 @@ do kk = 1, pfnt
 ! loop over active particles
 !$OMP DO
         do ii = 1, np_active
+          delta_time = 0.0d0
         !! skip inactive particles still allocated
         !! set random seed for each particle based on timestep and particle number
         ir = -(932117 + ii + 100*kk)
         if(P(ii,8) == 1.0) then
                 delta_time = P(ii,4) + pfdt
-                do while (P(ii,4) <= delta_time)
+                do while (P(ii,4) < delta_time)
 
                         ! Find the "adjacent" "cell corresponding to the particle's location
                         Ploc(1) = floor(P(ii,1) / dx)
@@ -640,11 +641,11 @@ do kk = 1, pfnt
                 (P(ii,1)>=Xmax).or.(P(ii,2)>=Ymax).or.(P(ii,3)>=Zmax)) then
 
                  ! if outflow at the top add to the outflow age
-                Z = 0.0d0
-                do k = 1, nz
-                Z = Z + dz(k)
-                end do
-                if ( (P(ii,3) >= Z-dz(nz)/2.0d0).and.   &
+                !Z = 0.0d0
+                !do k = 1, nz
+                !Z = Z + dz(k)
+                !end do
+                if ( (P(ii,3) >= Zmax-dz(k+1)).and.   &
                 (Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)  == 1.0) ) then
                 itime_loc = kk
                 if (itime_loc <= 0) itime_loc = 1
@@ -654,7 +655,7 @@ do kk = 1, pfnt
                 !$OMP ATOMIC
                 Out_mass(itime_loc,1) = Out_mass(itime_loc,1)  + P(ii,6)
                 !$OMP ATOMIC
-                Out_comp(itime_loc,1) = Out_comp(itime_loc,1) + P(ii,7)
+                Out_comp(itime_loc,1) = Out_comp(itime_loc,1) + P(ii,7)*P(ii,6)
                 !$OMP ATOMIC
                 Out_np(itime_loc) = Out_np(itime_loc) + 1
 
@@ -667,6 +668,7 @@ do kk = 1, pfnt
                 goto 999
 
                 end if
+                ! otherwise we just leave it in the domain to reflect
                 end if
 
 
@@ -740,9 +742,10 @@ do kk = 1, pfnt
                         ! water volume in cell
                         water_vol = dx*dy*dz(Ploc(3)+1)*(Porosity(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)  &
                         *Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))
-!                        Zr = ran1(ir)
+                        Zr = ran1(ir)
 !                        print*, P(ii,6),P(ii,7),et_flux, water_vol, et_flux*particledt*denh2o !Zr,(et_flux*particledt)/water_vol,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1
-  !                      if (Zr < ((et_flux*particledt)/water_vol)) then   ! check if particle is 'captured' by the roots
+!                        if (Zr < ((et_flux*particledt)/water_vol)) then   ! check if particle is 'captured' by the roots
+                        if (Zr < ((et_flux*particledt)/P(ii,6))) then   ! check if particle is 'captured' by the roots
 
                         !  add that amout of mass to ET BT; check if particle is out of mass
                         itime_loc = kk
@@ -751,9 +754,9 @@ do kk = 1, pfnt
                         if (itime_loc >= pfnt) itime_loc = pfnt
                         !  this section made atomic since it could inovlve a data race
                         !$OMP ATOMIC
-                        ET_age(itime_loc,1) = ET_age(itime_loc,1) + P(ii,4)*et_flux*particledt*denh2o
+                        ET_age(itime_loc,1) = ET_age(itime_loc,1) + P(ii,4)*P(ii,6)  !et_flux*particledt*denh2o
                         !$OMP ATOMIC
-                        ET_mass(itime_loc,1) = ET_mass(itime_loc,1)  + et_flux*particledt*denh2o  ! P(ii,6)
+                        ET_mass(itime_loc,1) = ET_mass(itime_loc,1)  + P(ii,6) !et_flux*particledt*denh2o  ! P(ii,6)
                         !$OMP ATOMIC
                         ET_comp(itime_loc,1) = ET_comp(itime_loc,1) + P(ii,7)
                         !$OMP ATOMIC
@@ -762,13 +765,13 @@ do kk = 1, pfnt
 
                         P(ii,6) = P(ii,6) - et_flux*particledt*denh2o
 
-                        if (P(ii,6) <= 0.0d0) then
+                        !if (P(ii,6) <= 0.0d0) then
 !                        write(21,220) Time_Next(kk), P(ii,1), P(ii,2), P(ii,3), P(ii,4), et_flux*particledt*denh2o, P(ii,7)
-                        flush(21)
+!                        flush(21)
                             P(ii,8) = 0.0d0
                             goto 999
-                            end if
-                        !end if
+                            !end if
+                        end if
                         end if
 
                         ! Advect particle to new location using Euler advection until next time
@@ -838,7 +841,7 @@ do kk = 1, pfnt
         !$OMP END PARALLEL
 
 
-
+!ipwrite = 1
 ! write all active particles at concentration
 if(ipwrite == 1) then
 ! open/create/write the 3D output file
@@ -852,7 +855,7 @@ close(14)
 end if
 
 ! normalize ages by mass
-where (C(3,:,:,:)>0.0) C(2,:,:,:) = C(2,:,:,:) / C(3,:,:,:)
+where (C(3,:,:,:)>0.0)  C(2,:,:,:) = C(2,:,:,:) / C(3,:,:,:)
 
   n_constituents = 3
   icwrite = 1
@@ -900,13 +903,15 @@ close(13)
 !! write ET files
 !
 open(13,file=trim(runname)//'_ET_output.txt')
-write(13,*) 'TIME ET_age ET_comp ET_mass  ET_Np'
+write(13,*) 'TIME ET_age ET_comp ET_mass ET_Np'
 do ii = 1, pfnt
 if (ET_mass(ii,1) > 0 ) then
-ET_age(ii,:) = ET_age(ii,:)/(ET_mass(ii,:))
-ET_comp(ii,:) = ET_comp(ii,:)/(ET_mass(ii,:))
-ET_mass(ii,:) = ET_mass(ii,:)/(ET_mass(ii,:))
+ET_age(ii,1) = ET_age(ii,1)/(ET_mass(ii,1))
+ET_comp(ii,1) = ET_comp(ii,1)/(ET_mass(ii,1))
 end if
+!if (ET_np(ii) > 0 ) then
+!ET_mass(ii,1) = ET_mass(ii,:)   !/(ET_np(ii))
+!end if
 write(13,64) float(ii)*ET_dt, ET_age(ii,1), ET_comp(ii,1), ET_mass(ii,1), ET_np(ii)
 64  FORMAT(4(e12.5),i12)
 end do
@@ -922,7 +927,7 @@ do ii = 1, pfnt
 if (Out_mass(ii,1) > 0 ) then
 Out_age(ii,:) = Out_age(ii,:)/(Out_mass(ii,:))
 Out_comp(ii,:) = Out_comp(ii,:)/(Out_mass(ii,:))
-Out_mass(ii,:) = Out_mass(ii,:)/(Out_mass(ii,:))
+!Out_mass(ii,:) = Out_mass(ii,:)/(Out_mass(ii,:))
 end if
 write(13,64) float(ii)*ET_dt, Out_age(ii,1), Out_comp(ii,1), Out_mass(ii,1), Out_np(ii)
 
