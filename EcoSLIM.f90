@@ -902,10 +902,10 @@ close(13)
 open(13,file=trim(runname)//'_ET_output.txt')
 write(13,*) 'TIME ET_age ET_comp ET_mass  ET_Np'
 do ii = 1, pfnt
-if (ET_mass(ii) > 0 ) then
-ET_age(ii,:) = ET_age(ii,:)/float(ET_mass(ii,:))
-ET_comp(ii,:) = ET_comp(ii,:)/float(ET_mass(ii,:))
-ET_mass(ii,:) = ET_mass(ii,:)/float(ET_mass(ii,:))
+if (ET_mass(ii,1) > 0 ) then
+ET_age(ii,:) = ET_age(ii,:)/(ET_mass(ii,:))
+ET_comp(ii,:) = ET_comp(ii,:)/(ET_mass(ii,:))
+ET_mass(ii,:) = ET_mass(ii,:)/(ET_mass(ii,:))
 end if
 write(13,64) float(ii)*ET_dt, ET_age(ii,1), ET_comp(ii,1), ET_mass(ii,1), ET_np(ii)
 64  FORMAT(4(e12.5),i12)
@@ -919,10 +919,10 @@ close(13)
 open(13,file=trim(runname)//'_flow_output.txt')
 write(13,*) 'TIME Out_age Out_comp Out_mass Out_NP'
 do ii = 1, pfnt
-if (Out_mass(ii) > 0 ) then
-Out_age(ii,:) = Out_age(ii,:)/float(Out_mass(ii,:))
-Out_comp(ii,:) = Out_comp(ii,:)/float(Out_mass(ii,:))
-Out_mass(ii,:) = Out_mass(ii,:)/float(Out_mass(ii,:))
+if (Out_mass(ii,1) > 0 ) then
+Out_age(ii,:) = Out_age(ii,:)/(Out_mass(ii,:))
+Out_comp(ii,:) = Out_comp(ii,:)/(Out_mass(ii,:))
+Out_mass(ii,:) = Out_mass(ii,:)/(Out_mass(ii,:))
 end if
 write(13,64) float(ii)*ET_dt, Out_age(ii,1), Out_comp(ii,1), Out_mass(ii,1), Out_np(ii)
 
