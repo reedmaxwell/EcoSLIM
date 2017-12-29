@@ -650,13 +650,14 @@ do kk = 1, pfnt
                 if (itime_loc <= 0) itime_loc = 1
                 if (itime_loc >= pfnt) itime_loc = pfnt
                 !$OMP ATOMIC
-                Out_age(itime_loc,1) = Out_age(itime_loc,1) + P(ii,4)
+                Out_age(itime_loc,1) = Out_age(itime_loc,1) + P(ii,4)*P(ii,6)
                 !$OMP ATOMIC
                 Out_mass(itime_loc,1) = Out_mass(itime_loc,1)  + P(ii,6)
                 !$OMP ATOMIC
                 Out_comp(itime_loc,1) = Out_comp(itime_loc,1) + P(ii,7)
                 !$OMP ATOMIC
                 Out_np(itime_loc) = Out_np(itime_loc) + 1
+
 
 !               write(22,220) Time_Next(kk), P(ii,1), P(ii,2), P(ii,3), P(ii,4), P(ii,6), P(ii,7)
     220         FORMAT(7(e12.5))
@@ -750,7 +751,7 @@ do kk = 1, pfnt
                         if (itime_loc >= pfnt) itime_loc = pfnt
                         !  this section made atomic since it could inovlve a data race
                         !$OMP ATOMIC
-                        ET_age(itime_loc,1) = ET_age(itime_loc,1) + P(ii,4)
+                        ET_age(itime_loc,1) = ET_age(itime_loc,1) + P(ii,4)*et_flux*particledt*denh2o
                         !$OMP ATOMIC
                         ET_mass(itime_loc,1) = ET_mass(itime_loc,1)  + et_flux*particledt*denh2o  ! P(ii,6)
                         !$OMP ATOMIC
@@ -850,8 +851,8 @@ end do
 close(14)
 end if
 
-! normalize ages by mass 
-where (C(3,:,:,:).ne.0.0) C(2,:,:,:) = C(2,:,:,:) / C(3,:,:,:)
+! normalize ages by mass
+where (C(3,:,:,:)>0.0) C(2,:,:,:) = C(2,:,:,:) / C(3,:,:,:)
 
   n_constituents = 3
   icwrite = 1
@@ -901,10 +902,10 @@ close(13)
 open(13,file=trim(runname)//'_ET_output.txt')
 write(13,*) 'TIME ET_age ET_comp ET_mass  ET_Np'
 do ii = 1, pfnt
-if (ET_np(ii) > 0 ) then
-ET_age(ii,:) = ET_age(ii,:)/float(ET_np(ii))
-ET_comp(ii,:) = ET_comp(ii,:)/float(ET_np(ii))
-ET_mass(ii,:) = ET_mass(ii,:)/float(ET_np(ii))
+if (ET_mass(ii) > 0 ) then
+ET_age(ii,:) = ET_age(ii,:)/float(ET_mass(ii,:))
+ET_comp(ii,:) = ET_comp(ii,:)/float(ET_mass(ii,:))
+ET_mass(ii,:) = ET_mass(ii,:)/float(ET_mass(ii,:))
 end if
 write(13,64) float(ii)*ET_dt, ET_age(ii,1), ET_comp(ii,1), ET_mass(ii,1), ET_np(ii)
 64  FORMAT(4(e12.5),i12)
@@ -918,10 +919,10 @@ close(13)
 open(13,file=trim(runname)//'_flow_output.txt')
 write(13,*) 'TIME Out_age Out_comp Out_mass Out_NP'
 do ii = 1, pfnt
-if (Out_np(ii) > 0 ) then
-Out_age(ii,:) = Out_age(ii,:)/float(Out_np(ii))
-Out_comp(ii,:) = Out_comp(ii,:)/float(Out_np(ii))
-Out_mass(ii,:) = Out_mass(ii,:)/float(Out_np(ii))
+if (Out_mass(ii) > 0 ) then
+Out_age(ii,:) = Out_age(ii,:)/float(Out_mass(ii,:))
+Out_comp(ii,:) = Out_comp(ii,:)/float(Out_mass(ii,:))
+Out_mass(ii,:) = Out_mass(ii,:)/float(Out_mass(ii,:))
 end if
 write(13,64) float(ii)*ET_dt, Out_age(ii,1), Out_comp(ii,1), Out_mass(ii,1), Out_np(ii)
 
