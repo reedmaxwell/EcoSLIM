@@ -5,7 +5,7 @@ EcoSLIM
 
 **EcoSLIM** is a Lagrangian, particle-tracking that simulates advective and diffusive movement of water parcels.  This code can be used to simulate age, diagnosing travel times, source water composition and flowpaths.  It integrates seamlessly with **ParFlow-CLM**.
 
-#### Developed Team
+#### Development Team
 + Reed Maxwell <rmaxwell@mines.edu>
 + Mohammad Danesh-Yazdi <danesh@mines.edu>
 + Laura Condon <lecondon@syr.edu>
