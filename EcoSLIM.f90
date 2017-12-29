@@ -109,7 +109,7 @@ real*8,allocatable::Vz(:,:,:)
 real*8,allocatable::C(:,:,:,:)
         ! Concentration array, in i,j,k with l (first index) as consituent or
         ! property.  These are set by user at runtime using input
-CHARACTER (LEN=20)     :: conc_header(:)
+CHARACTER*20,allocatable:: conc_header(:)
         ! name for variables written in the C array above.  Dimensioned as l above.
 real*8,allocatable::Time_Next(:)
         ! Vector of real times at which ParFlow dumps outputs
@@ -132,7 +132,7 @@ integer Ploc(3)
 integer nx, nnx, ny, nny, nz, nnz
         ! number of cells in the domain and cells+1 in x, y, and z directions
 
-integer np_ic, np, np_active
+integer np_ic, np, np_active, icwrite, jj, npnts, ncell
         ! number of particles for intial pulse IC, total, and running active
 
 integer nt, n_constituents
@@ -162,7 +162,7 @@ character*200 runname, filenum, pname, fname, vtk_file
         ! fname = Full name of a ParFlow's output
         ! vtk_file = concentration file
 
-real*8 Clocx, Clocy, Clocz, Z
+real*8 Clocx, Clocy, Clocz, Z, maxz
         ! The fractional location of each particle within it's grid cell
         ! Particle Z location
 
@@ -219,7 +219,7 @@ integer  T1, T2, ipwrite
 interface
   SUBROUTINE vtk_write(time,x,conc_header,ixlim,iylim,izlim,icycle,n_constituents,Pnts,vtk_file)
   real*8                 :: time
-  REAL*4    :: x(:,:,:,:)
+  REAL*8    :: x(:,:,:,:)
   CHARACTER (LEN=20)     :: conc_header(:)
   INTEGER*4 :: ixlim
   INTEGER*4 :: iylim
@@ -229,7 +229,7 @@ interface
   REAL*8                 :: dz(izlim)
   REAL*8                 :: Pnts(:,:)
   INTEGER                :: icycle
-  INTEGER*4              :: n_constituents
+  INTEGER                :: n_constituents
   CHARACTER (LEN=200)    :: vtk_file
 end subroutine vtk_write
 end interface
@@ -311,7 +311,7 @@ n_constituents = 3
 !allocate arrays
 allocate(PInLoc(np,3))
 allocate(Sx(nx,ny),Sy(nx,ny), DEM(nx,ny))
-allocate(dz(nz), Zt(nz))
+allocate(dz(nz), Zt(0:nz))
 allocate(Vx(nnx,ny,nz), Vy(nx,nny,nz), Vz(nx,ny,nnz))
 allocate(Saturation(nx,ny,nz), Porosity(nx,ny,nz),EvapTrans(nx,ny,nz), C(n_constituents,nx,ny,nz))
 allocate(conc_header(n_constituents))
@@ -319,7 +319,7 @@ allocate(conc_header(n_constituents))
 Vx = 0.0d0
 Vy = 0.0d0
 Vz = 0.0d0
-DEM = 0.0D0
+
 Saturation = 0.0D0
 Porosity = 0.0D0
 EvapTrans = 0.0d0
@@ -425,6 +425,15 @@ do k = 1, nz
         Zmax = Zmax + dz(k)
 end do
 
+!! hard wire DEM
+do i = 1, nx
+  do j = 1, ny
+DEM(i,j) = 0.0D0 + float(i)*dx*0.05
+!print*, DEM(i,j), i, j
+end do
+end do
+
+
 write(11,*)
 write(11,*) 'Domain Info'
 write(11,*) 'Xmin:',Xmin,' Xmax:',Xmax
@@ -444,7 +453,7 @@ m=1
 
 ! Need the maximum height of the model and elevation locations
 Z = 0.0d0
-Zt = 0.0D0
+Zt(0) = 0.0D0
 do ik = 1, nz
 Z = Z + dz(ik)
 Zt(ik) = Z
@@ -455,8 +464,8 @@ maxz=Z
 do k=1,nnz
  do j=1,nny
   do i=1,nnx
-   Pnts(m,1)=x1+DBLE(i-1)*dx
-   Pnts(m,2)=y1+DBLE(j-1)*dy
+   Pnts(m,1)=DBLE(i-1)*dx
+   Pnts(m,2)=DBLE(j-1)*dy
 ! This is a simple way of handling the maximum edges
    if (i <= nx) then
    ii=i
@@ -471,7 +480,8 @@ do k=1,nnz
    ! This step translates the DEM
    ! The specified initial heights in the pfb (z1) are ignored and the
    !  offset is computed based on the model thickness
-   Pnts(m,3)=(DEM(ii,jj)-maxZ)+Zt(k)
+   Pnts(m,3)=(DEM(ii,jj)-maxZ)+Zt(k-1)
+!   print*, Pnts(m,3), DEM(ii,jj), maxZ, Zt(k-1), ii, jj
    m=m+1
   end do
  end do
@@ -489,6 +499,8 @@ do ii = 1, np_ic
         PInLoc(ii,2) = P(ii,2)
         P(ii,3) = Zlow+ran1(ir)*(Zhi-Zlow)
         PInLoc(ii,3) = P(ii,3)
+        P(ii,4) = 0.0D0
+        P(ii,6) = 10.0
 end do
 flush(11)
 
@@ -650,7 +662,7 @@ do kk = 1, pfnt
     220         FORMAT(7(e12.5))
                 flush(21)
 !                !flag particle as inactive
-                P(ii,8) = 0
+                P(ii,8) = 0.0d0
                 goto 999
 
                 end if
@@ -790,31 +802,31 @@ do kk = 1, pfnt
                         if (P(ii,3) <=Zmin) P(ii,3) = Zmin+ (Zmin - P(ii,3) )
                         if (P(ii,1) <=Xmin) P(ii,1) = Xmin+ (Xmin - P(ii,1) )
 
-                        !! concentration routine
-                        ! Find the "adjacent" "cell corresponding to the particle's location
-                        Ploc(1) = floor(P(ii,1) / dx)
-                        Ploc(2) = floor(P(ii,2) / dy)
-                        Z = 0.0d0
-                        do k = 1, nz
-                                Z = Z + dz(k)
-                                if (Z >= P(ii,3)) then
-                                        Ploc(3) = k - 1
-                                        exit
-                                end if
-                        end do
-                        !$OMP Critical
-                        C(1,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) = C(1,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) + P(ii,6) / &
-                        dx*dy*dz(Ploc(3)+1)*(Porosity(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)  &
-                        *Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))
-                        !$OMP Critical
-                        C(2,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) = C(1,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) + P(ii,4)*P(ii,6)
-                        !$OMP Critical
-                        C(3,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) = C(3,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) + P(ii,6)
-!                    write(14,61) P(ii,1), P(ii,2), P(ii,3), P(ii,9)
 
                 end do  ! end of do-while loop for particle time to next time
         999 continue   ! where we go if the particle is out of bounds
 
+                                !! concentration routine
+                                ! Find the "adjacent" "cell corresponding to the particle's location
+                                Ploc(1) = floor(P(ii,1) / dx)
+                                Ploc(2) = floor(P(ii,2) / dy)
+                                Z = 0.0d0
+                                do k = 1, nz
+                                        Z = Z + dz(k)
+                                        if (Z >= P(ii,3)) then
+                                                Ploc(3) = k - 1
+                                                exit
+                                        end if
+                                end do
+                                !$OMP Atomic
+                                C(1,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) = C(1,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) + P(ii,8)*P(ii,6) /  &
+                                (dx*dy*dz(Ploc(3)+1)*(Porosity(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)        &
+                                 *Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)))
+                                !$OMP Atomic
+                                C(2,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) = C(1,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) + P(ii,8)*P(ii,4)*P(ii,6)
+                                !$OMP Atomic
+                                C(3,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) = C(3,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) + P(ii,8)*P(ii,6)
+        !                    write(14,61) P(ii,1), P(ii,2), P(ii,3), P(ii,9)
         end if   !! check if particle is active
         ! format statements lying around, should redo the way this is done
         61  FORMAT(4(e12.5))
@@ -823,9 +835,10 @@ do kk = 1, pfnt
         !$OMP END DO NOWAIT
         !$OMP FLUSH
         !$OMP END PARALLEL
+
+
+
 ! write all active particles at concentration
-
-
 if(ipwrite == 1) then
 ! open/create/write the 3D output file
 open(14,file=trim(runname)//'_transient_particle.'//trim(adjustl(filenum))//'.3D')
@@ -837,16 +850,21 @@ end do
 close(14)
 end if
 
-  C(2,:,:,:) = C(2,:,:,:) / C(3,:,:,:)
+! normalize ages by mass 
+where (C(3,:,:,:).ne.0.0) C(2,:,:,:) = C(2,:,:,:) / C(3,:,:,:)
+
   n_constituents = 3
   icwrite = 1
-vtk_file=trim(runname)//'_cgrid.'//trim(adjustl(filenum))//'.VTK'
+  vtk_file=trim(runname)//'_cgrid'
 conc_header(1) = 'Concentration'
 conc_header(2) = 'Age'
 conc_header(3) = 'Mass'
 
 if(icwrite == 1)  &
-call vtk_write(Time_Next(kk),C,conc_header,nx,ny,nz,Pnts,kk,n_constituents,vtk_file)
+call vtk_write(Time_Next(kk),C,conc_header,nx,ny,nz,kk,n_constituents,Pnts,vtk_file)
+
+!! reset C
+C = 0.0D0
 
 end do !! timesteps
 
