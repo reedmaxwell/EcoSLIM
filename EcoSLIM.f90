@@ -741,14 +741,14 @@ do kk = 1, pfnt
                 ! apply some boundary condition to them
                 !! check if particles are in domain, need to expand this to include better treatment of BC's
                 if ((P(ii,1) < Xmin).or.(P(ii,2)<Ymin).or.(P(ii,3)<Zmin).or.  &
-                (P(ii,1)>=Xmax).or.(P(ii,2)>=Ymax).or.(P(ii,3)>=Zmax)) then
+                (P(ii,1)>=Xmax).or.(P(ii,2)>=Ymax).or.(P(ii,3)>=(Zmax-dz(nz)/2.d0))) then
 
                  ! if outflow at the top add to the outflow age
                 !Z = 0.0d0
                 !do k = 1, nz
                 !Z = Z + dz(k)
                 !end do
-                if ( (P(ii,3) >= Zmax-dz(k+1)).and.   &
+                if ( (P(ii,3) >= Zmax-(dz(nz)/2.0d0)).and.   &
                 (Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)  == 1.0) ) then
                 itime_loc = kk
                 if (itime_loc <= 0) itime_loc = 1
