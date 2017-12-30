@@ -748,7 +748,7 @@ do kk = 1, pfnt
                 !do k = 1, nz
                 !Z = Z + dz(k)
                 !end do
-                if ( (P(ii,3) >= Zmax-(dz(nz)/2.0d0)).and.   &
+                if ( (P(ii,3) >= Zmax-(dz(nz)*0.050d0)).and.   &
                 (Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)  == 1.0) ) then
                 itime_loc = kk
                 if (itime_loc <= 0) itime_loc = 1
@@ -828,12 +828,9 @@ do kk = 1, pfnt
                         if (Vpx /= 0.0d0) advdt(1) = dabs(dtfrac*(dx/Vpx))
                         if (Vpy /= 0.0d0) advdt(2) = dabs(dtfrac*(dx/Vpy))
                         if (Vpz /= 0.0d0) advdt(3) = dtfrac*(dz(Ploc(3)+1)/dabs(Vpz))
-                        particledt = min(advdt(1),advdt(2), advdt(3),pfdt)
+                        particledt = min(advdt(1),advdt(2), advdt(3), &
+                                  pfdt*dtfrac  ,delta_time-P(ii,4)+1.0E-5)
 
-!print*, "dt",particledt, pfdt, advdt(1:3)
-!print*, "loc",Clocx, Clocy, Clocz
-!print*, "Vel",Vx(Ploc(1)+2,Ploc(2)+1,Ploc(3)+1), Vy(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1), Vz(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)
-!print*, "P",P(ii, 1:4)
                         ! calculate Flux in cell and compare it with the ET flux out of the cell
                         if (EvapTrans(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) < 0.0d0)then
 !print*, EvapTrans(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1), Ploc(1)+1,Ploc(2)+1,Ploc(3)+1
@@ -859,8 +856,8 @@ do kk = 1, pfnt
 
                         Zr = ran1(ir)
 !                        print*, P(ii,6),P(ii,7),et_flux, water_vol, et_flux*particledt*denh2o !Zr,(et_flux*particledt)/water_vol,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1
-                        !if (Zr < ((et_flux*particledt)/water_vol)) then   ! check if particle is 'captured' by the roots
-                        if (Zr < ((et_flux*particledt)/P(ii,6))) then   ! check if particle is 'captured' by the roots
+                        if (Zr < ((et_flux*particledt)/water_vol)) then   ! check if particle is 'captured' by the roots
+                        !if (Zr < ((et_flux*particledt)/P(ii,6))) then   ! check if particle is 'captured' by the roots
                         !  this section made atomic since it could inovlve a data race
                         !$OMP ATOMIC
                         ET_age(itime_loc,1) = ET_age(itime_loc,1) + P(ii,4)*et_flux*particledt*denh2o
@@ -876,14 +873,14 @@ do kk = 1, pfnt
                         ET_np(itime_loc) = ET_np(itime_loc) + 1
                         ! subtract flux from particle, remove from domain
 
-                        P(ii,6) = P(ii,6) - et_flux*particledt*denh2o
+                        !P(ii,6) = P(ii,6) - et_flux*particledt*denh2o
 
-                        if (P(ii,6) <= 0.0d0) then
+                        !if (P(ii,6) <= 0.0d0) then
 !                        write(21,220) Time_Next(kk), P(ii,1), P(ii,2), P(ii,3), P(ii,4), et_flux*particledt*denh2o, P(ii,7)
 !                        flush(21)
                             P(ii,8) = 0.0d0
                             goto 999
-                            end if
+                            !end if
                         end if
                         end if
 
@@ -907,14 +904,16 @@ do kk = 1, pfnt
                         P(ii,3) = P(ii,3) + z3 * DSQRT(moldiff*2.0D0*particledt)
 
 
-
 !!  Apply fractionation if we are in the top cell
 !!
                         if (Ploc(3) == nz-1)  P(ii,9) = P(ii,9) -Efract*particledt*100.
                         ! changes made in Ploc
                         if(Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) == 1.0) P(ii,5) = P(ii,5) + particledt
                         ! simple reflection
-                        if (P(ii,3) >=Zmax) P(ii,3) = Zmax- (P(ii,3) - Zmax)
+                        if (P(ii,3) >=Zmax) then
+                          if (Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) < 1.0) &
+                               P(ii,3) = Zmax- (P(ii,3) - Zmax)
+                        end if
                         if (P(ii,1) >=Xmax) P(ii,1) = Xmax- (P(ii,1) - Xmax)
                         if (P(ii,2) >=Ymax) P(ii,2) = Ymax- (P(ii,2) - Ymax)
                         if (P(ii,2) <=Ymin) P(ii,2) = Ymin+ (Ymin - P(ii,2))
