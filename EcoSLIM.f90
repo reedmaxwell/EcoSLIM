@@ -511,7 +511,6 @@ np_active = 0
 PInLoc=0.0d0
 !call srand(333)
 ir = -3333
-Z = ran1(ir)
 do i = 1, nx
 do j = 1, ny
 do k = 1, nz
@@ -520,15 +519,15 @@ do k = 1, nz
   np_active = np_active + 1
   ii = np_active
   ! assign X, Y, Z locations to recharge cell
-  P(ii,1) = float(i-1)*dx  +ran1()*dx
+  P(ii,1) = float(i-1)*dx  +ran1(ir)*dx
   PInLoc(ii,1) = P(ii,1)
-  P(ii,2) = float(j-1)*dy  +ran1()*dy
+  P(ii,2) = float(j-1)*dy  +ran1(ir)*dy
   PInLoc(ii,2) = P(ii,2)
   Z = 0.0d0
   do ik = 1, k
   Z = Z + dz(ik)
   end do
-  P(ii,3) = Z -dz(k)*ran1()
+  P(ii,3) = Z -dz(k)*ran1(ir)
   PInLoc(ii,3) = P(ii,3)
 !  print*, i, j, k, P(ii,1), P(ii,2), Z,dz(k), P(ii,3)
 
