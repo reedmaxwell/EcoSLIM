@@ -851,37 +851,39 @@ do kk = 1, pfnt
                         ! water volume in cell
                         water_vol = dx*dy*dz(Ploc(3)+1)*(Porosity(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)  &
                         *Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))
-                        Zr = ran1(ir)
-!                        print*, P(ii,6),P(ii,7),et_flux, water_vol, et_flux*particledt*denh2o !Zr,(et_flux*particledt)/water_vol,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1
-                        if (Zr < ((et_flux*particledt)/water_vol)) then   ! check if particle is 'captured' by the roots
-!                        if (Zr < ((et_flux*particledt)/P(ii,6))) then   ! check if particle is 'captured' by the roots
-
                         !  add that amout of mass to ET BT; check if particle is out of mass
                         itime_loc = kk
 !                        print*, itime_loc, P(ii,4), ET_dt
                         if (itime_loc <= 0) itime_loc = 1
                         if (itime_loc >= pfnt) itime_loc = pfnt
+
+                        Zr = ran1(ir)
+!                        print*, P(ii,6),P(ii,7),et_flux, water_vol, et_flux*particledt*denh2o !Zr,(et_flux*particledt)/water_vol,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1
+                        !if (Zr < ((et_flux*particledt)/water_vol)) then   ! check if particle is 'captured' by the roots
+                        if (Zr < ((et_flux*particledt)/P(ii,6))) then   ! check if particle is 'captured' by the roots
                         !  this section made atomic since it could inovlve a data race
                         !$OMP ATOMIC
                         ET_age(itime_loc,1) = ET_age(itime_loc,1) + P(ii,4)*et_flux*particledt*denh2o
                         !$OMP ATOMIC
-                        ET_mass(itime_loc,1) = ET_mass(itime_loc,1)  + et_flux*particledt*denh2o  ! P(ii,6)
-                        !$OMP ATOMIC
                         ET_mass(itime_loc,2) = ET_mass(itime_loc,1)  +  P(ii,6)
+                        !$OMP ATOMIC
+                        ET_mass(itime_loc,1) = ET_mass(itime_loc,1)  + et_flux*particledt*denh2o
+                        !$OMP ATOMIC
+                        ET_mass(itime_loc,3) = ET_mass(itime_loc,3)  + P(ii,6)
                         !$OMP ATOMIC
                         ET_comp(itime_loc,1) = ET_comp(itime_loc,1) + P(ii,7)
                         !$OMP ATOMIC
                         ET_np(itime_loc) = ET_np(itime_loc) + 1
                         ! subtract flux from particle, remove from domain
 
-!                        P(ii,6) = P(ii,6) - et_flux*particledt*denh2o
+                        P(ii,6) = P(ii,6) - et_flux*particledt*denh2o
 
-!                        if (P(ii,6) <= 0.0d0) then
+                        if (P(ii,6) <= 0.0d0) then
 !                        write(21,220) Time_Next(kk), P(ii,1), P(ii,2), P(ii,3), P(ii,4), et_flux*particledt*denh2o, P(ii,7)
 !                        flush(21)
                             P(ii,8) = 0.0d0
                             goto 999
-!                            end if
+                            end if
                         end if
                         end if
 
@@ -903,6 +905,8 @@ do kk = 1, pfnt
                         P(ii,1) = P(ii,1) + z1 * DSQRT(moldiff*2.0D0*particledt)
                         P(ii,2) = P(ii,2) + z2 * DSQRT(moldiff*2.0D0*particledt)
                         P(ii,3) = P(ii,3) + z3 * DSQRT(moldiff*2.0D0*particledt)
+
+
 
 !!  Apply fractionation if we are in the top cell
 !!
@@ -1024,17 +1028,20 @@ close(13)
 !! write ET files
 !
 open(13,file=trim(runname)//'_ET_output.txt')
-write(13,*) 'TIME ET_age ET_comp ET_mass1 ET_mass2 ET_Np'
+write(13,*) 'TIME ET_age ET_comp ET_mass1 ET_mass2 ET_mass3 ET_Np'
 do ii = 1, pfnt
 if (ET_mass(ii,1) > 0 ) then
 ET_age(ii,1) = ET_age(ii,1)/(ET_mass(ii,1))
 ET_comp(ii,1) = ET_comp(ii,1)/(ET_mass(ii,1))
 end if
+!if (ET_mass(ii,3) > 0 ) then
+!ET_mass(ii,1) = ET_mass(ii,1)/(ET_mass(ii,3))
+!end if
 !if (ET_np(ii) > 0 ) then
 !ET_mass(ii,1) = ET_mass(ii,:)   !/(ET_np(ii))
 !end if
-write(13,'(5(e12.5),i12)') float(ii)*ET_dt, ET_age(ii,1), ET_comp(ii,1), &
-                           ET_mass(ii,1), ET_mass(ii,2), ET_np(ii)
+write(13,'(6(e12.5),i12)') float(ii)*ET_dt, ET_age(ii,1), ET_comp(ii,1), &
+                           ET_mass(ii,1), ET_mass(ii,2),ET_mass(ii,3), ET_np(ii)
 64  FORMAT(4(e12.5),i12)
 end do
 flush(13)
