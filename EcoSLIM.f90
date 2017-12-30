@@ -150,7 +150,7 @@ integer ii
         ! Loop counter for the number of particles (np)
 integer iflux_p_res
         ! Number of particles per cell for flux input
-integer i, j, k, l, ik, ji, m
+integer i, j, k, l, ik, ji, m, ij
 integer itime_loc
         ! Local indices / counters
 integer*4 ir
@@ -208,10 +208,13 @@ real*8 Xlow, Xhi, Ylow, Yhi, Zlow, Zhi
 ! density of water (M/L3), molecular diffusion (L2/T), fractionation
 real*8 denh2o, moldiff, Efract  !, ran1
 
-real*8, allocatable::ET_age(:,:), ET_mass(:,:), ET_comp(:,:)
+! time history of ET, time (1,:) and mass for rain (2,:), snow (3,:),
+! PET balance is water balance flux from PF accumulated over the domain at each
+! timestep
+real*8, allocatable::ET_age(:,:), ET_mass(:,:), ET_comp(:,:), PET_balance(:,:)
 real*8, allocatable::Out_age(:,:), Out_mass(:,:), Out_comp(:,:)
 integer, allocatable:: ET_np(:), Out_np(:)
-! time history of ET, time (1,:) and mass for rain (2,:), snow (3,:)
+
 real*8  ET_dt, DR_Temp
         ! time interval for ET
 integer  T1, T2, ipwrite
@@ -307,13 +310,14 @@ nny=ny+1
 nnz=nz+1
 
 !  number of things written to C array, hard wired at 2 now for Testing
-n_constituents = 3
+n_constituents = 4
 !allocate arrays
 allocate(PInLoc(np,3))
 allocate(Sx(nx,ny),Sy(nx,ny), DEM(nx,ny))
 allocate(dz(nz), Zt(0:nz))
 allocate(Vx(nnx,ny,nz), Vy(nx,nny,nz), Vz(nx,ny,nnz))
-allocate(Saturation(nx,ny,nz), Porosity(nx,ny,nz),EvapTrans(nx,ny,nz), C(n_constituents,nx,ny,nz))
+allocate(Saturation(nx,ny,nz), Porosity(nx,ny,nz),EvapTrans(nx,ny,nz))
+allocate(C(n_constituents,nx,ny,nz))
 allocate(conc_header(n_constituents))
 !Intialize everything to Zero
 Vx = 0.0d0
@@ -341,10 +345,12 @@ read(10,*) pfnt
 ! set ET DT to ParFlow one and allocate ET arrays accordingly
 ET_dt = pfdt
 allocate(ET_age(pfnt,5), ET_comp(pfnt,5), ET_mass(pfnt,5), ET_np(pfnt))
+allocate(PET_balance(pfnt,2))
 ET_age = 0.0d0
 ET_mass = 0.0d0
 ET_comp = 0.0d0
 ET_np = 0
+PET_balance = 0.0D0
 
 allocate(Out_age(pfnt,5), Out_comp(pfnt,5), Out_mass(pfnt,5), Out_np(pfnt))
 Out_age = 0.0d0
@@ -487,31 +493,110 @@ do k=1,nnz
  end do
 end do
 
-!! Define initial particles' locations
-
-PInLoc=0.0d0
-!call srand(333)
-ir = -3333
-do ii = 1, np_ic
-        P(ii,1) = Xlow+ran1(ir)*(Xhi-Xlow)
-        PInLoc(ii,1) = P(ii,1)
-        P(ii,2) = Ylow+ran1(ir)*(Yhi-Ylow)
-        PInLoc(ii,2) = P(ii,2)
-        P(ii,3) = Zlow+ran1(ir)*(Zhi-Zlow)
-        PInLoc(ii,3) = P(ii,3)
-        P(ii,4) = 0.0D0
-        P(ii,6) = 10.0
-end do
-flush(11)
-
-np_active = np_ic
 
 ! Read porosity values from ParFlow .pfb file
 fname=trim(adjustl(pname))//'.out.porosity.pfb'
 !print*, fname
 call pfb_read(Porosity,fname,nx,ny,nz)
 
+! Read the in initial Saturation from ParFlow
+kk = 0
+write(filenum,'(i5.5)') kk
+fname=trim(adjustl(pname))//'.out.satur.'//trim(adjustl(filenum))//'.pfb'
+call pfb_read(Saturation,fname,nx,ny,nz)
+
+!! Define initial particles' locations and mass
+np_active = 0
+
+PInLoc=0.0d0
+!call srand(333)
+ir = -3333
+Z = ran1(ir)
+do i = 1, nx
+do j = 1, ny
+do k = 1, nz
+  if (np_active < np) then   ! check if we have particles left
+  do ij = 1, np_ic
+  np_active = np_active + 1
+  ii = np_active
+  ! assign X, Y, Z locations to recharge cell
+  P(ii,1) = float(i-1)*dx  +ran1()*dx
+  PInLoc(ii,1) = P(ii,1)
+  P(ii,2) = float(j-1)*dy  +ran1()*dy
+  PInLoc(ii,2) = P(ii,2)
+  Z = 0.0d0
+  do ik = 1, k
+  Z = Z + dz(ik)
+  end do
+  P(ii,3) = Z -dz(k)*ran1()
+  PInLoc(ii,3) = P(ii,3)
+!  print*, i, j, k, P(ii,1), P(ii,2), Z,dz(k), P(ii,3)
+
+!        P(ii,1) = Xlow+ran1(ir)*(Xhi-Xlow)
+!        PInLoc(ii,1) = P(ii,1)
+!        P(ii,2) = Ylow+ran1(ir)*(Yhi-Ylow)
+!        PInLoc(ii,2) = P(ii,2)
+!        P(ii,3) = Zlow+ran1(ir)*(Zhi-Zlow)
+!        PInLoc(ii,3) = P(ii,3)
+!        P(ii,4) = 0.0D0
+!        ! Find the "adjacent" cell corresponding to the particle's location
+!        Ploc(1) = floor(P(ii,1) / dx)
+!        Ploc(2) = floor(P(ii,2) / dy)
+!        Z = 0.0d0
+!        do k = 1, nz
+!                Z = Z + dz(k)
+!                if (Z >= P(ii,3)) then
+!                        Ploc(3) = k - 1
+!                        exit
+!                end if
+!        end do
+!        ! use this location to assign
+        P(ii,6) = dx*dy*dz(k)*(Porosity(i,j,k)  &
+                 *Saturation(i,j,k))*denh2o*(1.0d0/float(np_ic))
+        P(ii,7) = 1.0d0
+        P(ii,8) = 1.0d0
+        ! set up intial concentrations
+        C(1,i,j,k) = C(1,i,j,k) + P(ii,8)*P(ii,6) /  &
+        (dx*dy*dz(k)*(Porosity(i,j,k)        &
+         *Saturation(i,j,k)))
+        C(2,i,j,k) = C(2,i,j,k) + P(ii,8)*P(ii,4)*P(ii,6)
+        C(4,i,j,k) = C(4,i,j,k) + P(ii,8)*P(ii,7)*P(ii,6)
+        C(3,i,j,k) = C(3,i,j,k) + P(ii,8)*P(ii,6)
+end do   ! particles per cell
+else
+  write(11,*) ' **Warning IC input but no paricles left'
+  write(11,*) ' **Exiting code gracefully writing restart '
+  goto 9090
+
+end if
+end do ! i
+end do ! j
+end do ! k
 flush(11)
+
+! Write out intial concentrations
+! normalize ages by mass
+where (C(3,:,:,:)>0.0)  C(2,:,:,:) = C(2,:,:,:) / C(3,:,:,:)
+where (C(3,:,:,:)>0.0)  C(4,:,:,:) = C(4,:,:,:) / C(3,:,:,:)
+
+  n_constituents = 4
+  icwrite = 1
+  vtk_file=trim(runname)//'_cgrid'
+conc_header(1) = 'Concentration'
+conc_header(2) = 'Age'
+conc_header(3) = 'Mass'
+conc_header(4) = 'Comp'
+
+if(icwrite == 1)  &
+call vtk_write(0.0d0,C,conc_header,nx,ny,nz,kk,n_constituents,Pnts,vtk_file)
+
+!! clear out C arrays
+C = 0.0D0
+
+!np_active = np_ic
+
+
+!flush(11)
 
 
 
@@ -552,14 +637,25 @@ do kk = 1, pfnt
         Vz = Vz * V_mult
 
         ! Add particles if P-ET > 0
-        if (clmtrans) then   !check if this is our mode of operation
+        if (clmtrans) then   !check if this is our mode of operation, read in the ParFlow evap trans file
+                             ! normally generated by CLM but not exclsuively, to assign new particles to any
+                             ! additional water fluxes (rain, snow, irrigation water) with the mass of each
+                             ! particle assigned to be the mass of the NEW water
         ! check overall if we are out of particles (we do this twice once for speed, again for array)
+        ! generally if we are out of particles the simulation isn't valid, but we just warn the user
         if (np_active < np) then
-        ! loop over top of domain, need to make this more flexible in input for 2D cases, etc
+        ! loop over entire domain, need to make this more flexible in input
+        ! this could be parallelized but thread race concerns when summing total fluxes
+        ! and a scheme to place particles accurately in paralell makes me think serial is
+        ! still more efficient
         do i = 1, nx
         do j = 1, ny
         do k = 1, nz
-        if (EvapTrans(i,j,k)> 0.0d0)  then
+        if (EvapTrans(i,j,k)> 0.0d0) then
+        ! sum water inputs in PET 1 = P, 2 = ET, kk= PF timestep
+        ! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass of water input
+        PET_balance(kk,1) = PET_balance(kk,1) &
+                            + pfdt*EvapTrans(i,j,k)*dx*dy*dz(k)*denh2o
         if (Saturation(i,j,k)< 1.0d0)  then
         do ji = 1, iflux_p_res
         if (np_active < np) then   ! check if we have particles left
@@ -576,18 +672,26 @@ do kk = 1, pfnt
         end do
         P(ii,3) = Z -dz(k)*ran1(ir)
         PInLoc(ii,3) = P(ii,3)
-        !print*, P(ii,1), P(ii,2), P(ii,3), z, k
+
         ! assign zero time and flux of water
         P(ii,4) = 0.0d0
         P(ii,5) = 0.0d0
-        P(ii,6) = (1.0d0/float(iflux_p_res))*(pfdt*EvapTrans(i,j,k)*dx*dy*dz(k))*denh2o  !! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass
+        P(ii,6) = (1.0d0/float(iflux_p_res))   &
+                  *(pfdt*EvapTrans(i,j,k)*dx*dy*dz(k))*denh2o  !! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass
         P(ii,7) = 2.d0 ! Rainfall composition
         !print*, i,j,k,P(ii,1:6),ii,np_active
         else
         write(11,*) ' **Warning rainfall input but no paricles left'
+        write(11,*) ' **Exiting code gracefully writing restart '
+        goto 9090
         end if  !! do we have particles left?
         end do !! for flux particle resolution
         end if  !! end for Sat < 1
+        else !! ET not P
+        ! sum water inputs in PET 1 = P, 2 = ET, kk= PF timestep
+        ! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass of water input
+        PET_balance(kk,2) = PET_balance(kk,2) &
+                            + pfdt*EvapTrans(i,j,k)*dx*dy*dz(k)*denh2o
         end if  !! end if for P-ET > 0
         end do
         end do
@@ -599,8 +703,8 @@ do kk = 1, pfnt
         flush(11)
 
 
-! Set up parallel section and define
-! private, local variables used only in this code subsection
+!! Set up parallel section and define thread
+!! private, local variables used only in this code subsection
 !$OMP PARALLEL PRIVATE(Ploc, k, l, ik, Clocx, Clocy, Clocz, Vpx, Z, z1, z2, z3)   &
 !$OMP& PRIVATE(Vpy, Vpz, particledt, delta_time,local_flux, et_flux)  &
 !$OMP& PRIVATE(water_vol, Zr, itime_loc, advdt, DR_Temp, ir) &
@@ -621,7 +725,7 @@ do kk = 1, pfnt
                 delta_time = P(ii,4) + pfdt
                 do while (P(ii,4) < delta_time)
 
-                        ! Find the "adjacent" "cell corresponding to the particle's location
+                        ! Find the "adjacent" cell corresponding to the particle's location
                         Ploc(1) = floor(P(ii,1) / dx)
                         Ploc(2) = floor(P(ii,2) / dy)
 
@@ -637,7 +741,7 @@ do kk = 1, pfnt
                 ! check to make sure particles are in central part of the domain and if not
                 ! apply some boundary condition to them
                 !! check if particles are in domain, need to expand this to include better treatment of BC's
-                if ((P(ii,1) < Xmin).or.(P(ii,2)<Ymin).or.(P(ii,3)<Zmin).or.    &
+                if ((P(ii,1) < Xmin).or.(P(ii,2)<Ymin).or.(P(ii,3)<Zmin).or.  &
                 (P(ii,1)>=Xmax).or.(P(ii,2)>=Ymax).or.(P(ii,3)>=Zmax)) then
 
                  ! if outflow at the top add to the outflow age
@@ -704,14 +808,20 @@ do kk = 1, pfnt
                         ! Calculate local particle velocity using linear interpolation,
                         ! converting darcy flux to average linear velocity
 
-                        Vpx = ((1.0d0-Clocx)*Vx(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) + Vx(Ploc(1)+2,Ploc(2)+1,Ploc(3)+1)*Clocx)  &
-                              /(Porosity(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)*Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))
+                        Vpx = ((1.0d0-Clocx)*Vx(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) &
+                              + Vx(Ploc(1)+2,Ploc(2)+1,Ploc(3)+1)*Clocx)   &
+                              /(Porosity(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) &
+                              *Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))
 
-                        Vpy =  ((1.0d0-Clocy)*Vy(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) + Vy(Ploc(1)+1,Ploc(2)+2,Ploc(3)+1)*Clocy) &
-                              /(Porosity(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)*Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))
+                        Vpy = ((1.0d0-Clocy)*Vy(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) &
+                                + Vy(Ploc(1)+1,Ploc(2)+2,Ploc(3)+1)*Clocy) &
+                                /(Porosity(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) &
+                                *Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))
 
-                        Vpz = ((1.0d0-Clocz)*Vz(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) + Vz(Ploc(1)+1,Ploc(2)+1,Ploc(3)+2)*Clocz)  &
-                              /(Porosity(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)*Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))
+                        Vpz = ((1.0d0-Clocz)*Vz(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) &
+                                  + Vz(Ploc(1)+1,Ploc(2)+1,Ploc(3)+2)*Clocz)  &
+                                    /(Porosity(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) &
+                                  *Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))
 
                         ! calculate particle dt
                         ! check each direction independently
@@ -726,7 +836,7 @@ do kk = 1, pfnt
 !print*, "Vel",Vx(Ploc(1)+2,Ploc(2)+1,Ploc(3)+1), Vy(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1), Vz(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)
 !print*, "P",P(ii, 1:4)
                         ! calculate Flux in cell and compare it with the ET flux out of the cell
-                        if (EvapTrans(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) < 0.0d0)  then
+                        if (EvapTrans(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) < 0.0d0)then
 !print*, EvapTrans(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1), Ploc(1)+1,Ploc(2)+1,Ploc(3)+1
 
                         ! calculate divergence of Darcy flux in the cell
@@ -744,8 +854,8 @@ do kk = 1, pfnt
                         *Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))
                         Zr = ran1(ir)
 !                        print*, P(ii,6),P(ii,7),et_flux, water_vol, et_flux*particledt*denh2o !Zr,(et_flux*particledt)/water_vol,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1
-!                        if (Zr < ((et_flux*particledt)/water_vol)) then   ! check if particle is 'captured' by the roots
-                        if (Zr < ((et_flux*particledt)/P(ii,6))) then   ! check if particle is 'captured' by the roots
+                        if (Zr < ((et_flux*particledt)/water_vol)) then   ! check if particle is 'captured' by the roots
+!                        if (Zr < ((et_flux*particledt)/P(ii,6))) then   ! check if particle is 'captured' by the roots
 
                         !  add that amout of mass to ET BT; check if particle is out of mass
                         itime_loc = kk
@@ -754,23 +864,25 @@ do kk = 1, pfnt
                         if (itime_loc >= pfnt) itime_loc = pfnt
                         !  this section made atomic since it could inovlve a data race
                         !$OMP ATOMIC
-                        ET_age(itime_loc,1) = ET_age(itime_loc,1) + P(ii,4)*P(ii,6)  !et_flux*particledt*denh2o
+                        ET_age(itime_loc,1) = ET_age(itime_loc,1) + P(ii,4)*et_flux*particledt*denh2o
                         !$OMP ATOMIC
-                        ET_mass(itime_loc,1) = ET_mass(itime_loc,1)  + P(ii,6) !et_flux*particledt*denh2o  ! P(ii,6)
+                        ET_mass(itime_loc,1) = ET_mass(itime_loc,1)  + et_flux*particledt*denh2o  ! P(ii,6)
+                        !$OMP ATOMIC
+                        ET_mass(itime_loc,2) = ET_mass(itime_loc,1)  +  P(ii,6)
                         !$OMP ATOMIC
                         ET_comp(itime_loc,1) = ET_comp(itime_loc,1) + P(ii,7)
                         !$OMP ATOMIC
                         ET_np(itime_loc) = ET_np(itime_loc) + 1
                         ! subtract flux from particle, remove from domain
 
-                        P(ii,6) = P(ii,6) - et_flux*particledt*denh2o
+!                        P(ii,6) = P(ii,6) - et_flux*particledt*denh2o
 
-                        !if (P(ii,6) <= 0.0d0) then
+!                        if (P(ii,6) <= 0.0d0) then
 !                        write(21,220) Time_Next(kk), P(ii,1), P(ii,2), P(ii,3), P(ii,4), et_flux*particledt*denh2o, P(ii,7)
 !                        flush(21)
                             P(ii,8) = 0.0d0
                             goto 999
-                            !end if
+!                            end if
                         end if
                         end if
 
@@ -827,7 +939,9 @@ do kk = 1, pfnt
                                 (dx*dy*dz(Ploc(3)+1)*(Porosity(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)        &
                                  *Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)))
                                 !$OMP Atomic
-                                C(2,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) = C(1,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) + P(ii,8)*P(ii,4)*P(ii,6)
+                                C(2,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) = C(2,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) + P(ii,8)*P(ii,4)*P(ii,6)
+                                !$OMP Atomic
+                                C(4,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) = C(4,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) + P(ii,8)*P(ii,7)*P(ii,6)
                                 !$OMP Atomic
                                 C(3,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) = C(3,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) + P(ii,8)*P(ii,6)
         !                    write(14,61) P(ii,1), P(ii,2), P(ii,3), P(ii,9)
@@ -856,13 +970,15 @@ end if
 
 ! normalize ages by mass
 where (C(3,:,:,:)>0.0)  C(2,:,:,:) = C(2,:,:,:) / C(3,:,:,:)
+where (C(3,:,:,:)>0.0)  C(4,:,:,:) = C(4,:,:,:) / C(3,:,:,:)
 
-  n_constituents = 3
+  n_constituents = 4
   icwrite = 1
   vtk_file=trim(runname)//'_cgrid'
 conc_header(1) = 'Concentration'
 conc_header(2) = 'Age'
 conc_header(3) = 'Mass'
+conc_header(4) = 'Comp'
 
 if(icwrite == 1)  &
 call vtk_write(Time_Next(kk),C,conc_header,nx,ny,nz,kk,n_constituents,Pnts,vtk_file)
@@ -873,12 +989,18 @@ C = 0.0D0
 end do !! timesteps
 
 ! Close 3D file
-close(12)
+!close(12)
 ! close particle ET and outflow files
-close(21)
-close(22)
+!close(21)
+!close(22)
 
-! Create/open/write the final particles' locations and residence time
+9090 continue  !! continue statement for running out of particles when assigning precip flux.
+               !!  code exits gracefully (writes files and possibly a restart file so the user can
+               !!  re-run the simulation)
+
+
+! Create/open/write the final particles' locations and residence time, should make this binary and
+! make this contain ALL particle attributes to act as a restart file
 open(13,file=trim(runname)//'_endparticle.txt')
 write(13,*) 'NP X Y Z TIME'
 do ii = 1, np_active
@@ -903,7 +1025,7 @@ close(13)
 !! write ET files
 !
 open(13,file=trim(runname)//'_ET_output.txt')
-write(13,*) 'TIME ET_age ET_comp ET_mass ET_Np'
+write(13,*) 'TIME ET_age ET_comp ET_mass1 ET_mass2 ET_Np'
 do ii = 1, pfnt
 if (ET_mass(ii,1) > 0 ) then
 ET_age(ii,1) = ET_age(ii,1)/(ET_mass(ii,1))
@@ -912,7 +1034,8 @@ end if
 !if (ET_np(ii) > 0 ) then
 !ET_mass(ii,1) = ET_mass(ii,:)   !/(ET_np(ii))
 !end if
-write(13,64) float(ii)*ET_dt, ET_age(ii,1), ET_comp(ii,1), ET_mass(ii,1), ET_np(ii)
+write(13,'(5(e12.5),i12)') float(ii)*ET_dt, ET_age(ii,1), ET_comp(ii,1), &
+                           ET_mass(ii,1), ET_mass(ii,2), ET_np(ii)
 64  FORMAT(4(e12.5),i12)
 end do
 flush(13)
@@ -935,6 +1058,18 @@ end do
 flush(13)
 ! close ET file
 close(13)
+
+!! write P-ET water balance
+!
+open(13,file=trim(runname)//'_PET_balance.txt')
+write(13,*) 'TIME P[kg] ET[kg]'
+do ii = 1, pfnt
+write(13,'(3(e12.5,2x))') float(ii)*ET_dt, PET_balance(ii,1), PET_balance(ii,2)
+end do
+flush(13)
+! close ET file
+close(13)
+
 ! close the log file
 close(11)
 
