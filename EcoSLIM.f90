@@ -124,6 +124,8 @@ real*8,allocatable::Sy(:,:)  ! Sy: Slopes in y-direction (not used)
 real*8,allocatable::Saturation(:,:,:)    ! Saturation (read from ParFlow)
 real*8,allocatable::Porosity(:,:,:)      ! Porosity (read from ParFlow)
 real*8,allocatable::EvapTrans(:,:,:)     ! CLM EvapTrans (read from ParFlow, [1/T] units)
+real*8,allocatable::CLMvars(:,:,:)     ! CLM Output (read from ParFlow, following single file
+                                       ! CLM output as specified in the manual)
 real*8, allocatable::Pnts(:,:), DEM(:,:) ! DEM and grid points for concentration output
 
 integer Ploc(3)
@@ -150,7 +152,7 @@ integer ii
         ! Loop counter for the number of particles (np)
 integer iflux_p_res
         ! Number of particles per cell for flux input
-integer i, j, k, l, ik, ji, m, ij
+integer i, j, k, l, ik, ji, m, ij, nzclm, nCLMsoil
 integer itime_loc
         ! Local indices / counters
 integer*4 ir
@@ -217,7 +219,7 @@ integer, allocatable:: ET_np(:), Out_np(:)
 
 real*8  ET_dt, DR_Temp
         ! time interval for ET
-integer  T1, T2, ipwrite
+integer  Total_time1, Total_time2, t1, t2, IO_time_read, IO_time_write, parallel_time, ipwrite
 
 interface
   SUBROUTINE vtk_write(time,x,conc_header,ixlim,iylim,izlim,icycle,n_constituents,Pnts,vtk_file)
@@ -237,7 +239,16 @@ interface
 end subroutine vtk_write
 end interface
 
-        call system_clock(T1)
+!Set up timing
+Total_time1 = 0
+Total_time2 = 0
+t1 = 0
+t2 = 0
+IO_time_read = 0
+IO_time_write = 0
+parallel_time = 0
+
+        call system_clock(Total_time1)
 
 !--------------------------------------------------------------------
 ! (2) Read inputs, set up domain, write the log file, and
@@ -252,6 +263,7 @@ end interface
 !       - #13: runname_endparticle.txt
 !       - #14: runname_transient_particle.XXX.3D  (visualizes particles in VisIT, one per timetep)
 
+call system_clock(T1)
 
 ! open SLIM input .txt file
 open (10,file='slimin.txt')
@@ -309,6 +321,11 @@ nnx=nx+1
 nny=ny+1
 nnz=nz+1
 
+nCLMsoil = 10 ! number of CLM soil layers over the root zone
+nzclm = 13+nCLMsoil ! CLM output is 13+nCLMsoil layers for different variables not domain NZ,
+           !  e.g. 23 for 10 soil layers (default) and 17 for 4 soil layers (Noah soil
+           ! layer setup)
+
 !  number of things written to C array, hard wired at 2 now for Testing
 n_constituents = 4
 !allocate arrays
@@ -317,6 +334,7 @@ allocate(Sx(nx,ny),Sy(nx,ny), DEM(nx,ny))
 allocate(dz(nz), Zt(0:nz))
 allocate(Vx(nnx,ny,nz), Vy(nx,nny,nz), Vz(nx,ny,nnz))
 allocate(Saturation(nx,ny,nz), Porosity(nx,ny,nz),EvapTrans(nx,ny,nz))
+allocate(CLMvars(nx,ny,nzclm))
 allocate(C(n_constituents,nx,ny,nz))
 allocate(conc_header(n_constituents))
 !Intialize everything to Zero
@@ -419,6 +437,10 @@ write(11,*) 'dtfrac: ',dtfrac,' fraction of dx/Vx'
 
 ! end of SLIM input
 close(10)
+
+call system_clock(T2)
+
+IO_time_read = IO_time_read + (T2-T1)
 
 !! set up domain boundaries
 Xmin = 0.0d0
@@ -608,6 +630,8 @@ C = 0.0D0
 ! loop over timesteps
 do kk = 1, pfnt
 
+        call system_clock(T1)
+
         ! Read the velocities computed by ParFlow
         write(filenum,'(i5.5)') kk
 
@@ -627,8 +651,14 @@ do kk = 1, pfnt
         ! Read in the Evap_Trans
         fname=trim(adjustl(pname))//'.out.evaptrans.'//trim(adjustl(filenum))//'.pfb'
         call pfb_read(EvapTrans,fname,nx,ny,nz)
+        ! Read in CLM output file
+        fname=trim(adjustl(pname))//'.out.clm_output.'//trim(adjustl(filenum))//'.C.pfb'
+        call pfb_read(CLMvars,fname,nx,ny,nzclm)
         end if
 
+        call system_clock(T2)
+
+        IO_time_read = IO_time_read + (T2-T1)
 
         ! Determine whether to perform forward or backward patricle tracking
         Vx = Vx * V_mult
@@ -701,6 +731,7 @@ do kk = 1, pfnt
         write(11,*) ' Time Step: ',Time_Next(kk),' NP Active:',np_active
         flush(11)
 
+        call system_clock(T1)
 
 !! Set up parallel section and define thread
 !! private, local variables used only in this code subsection
@@ -741,14 +772,14 @@ do kk = 1, pfnt
                 ! apply some boundary condition to them
                 !! check if particles are in domain, need to expand this to include better treatment of BC's
                 if ((P(ii,1) < Xmin).or.(P(ii,2)<Ymin).or.(P(ii,3)<Zmin).or.  &
-                (P(ii,1)>=Xmax).or.(P(ii,2)>=Ymax).or.(P(ii,3)>=(Zmax-dz(nz)/2.d0))) then
+                (P(ii,1)>=Xmax).or.(P(ii,2)>=Ymax).or.(P(ii,3)>=(Zmax-dz(nz)))) then
 
                  ! if outflow at the top add to the outflow age
                 !Z = 0.0d0
                 !do k = 1, nz
                 !Z = Z + dz(k)
                 !end do
-                if ( (P(ii,3) >= Zmax-(dz(nz)*0.050d0)).and.   &
+                if ( (P(ii,3) >= Zmax-(dz(nz)*0.50d0)).and.   &
                 (Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)  == 1.0) ) then
                 itime_loc = kk
                 if (itime_loc <= 0) itime_loc = 1
@@ -911,7 +942,7 @@ do kk = 1, pfnt
                         if(Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) == 1.0) P(ii,5) = P(ii,5) + particledt
                         ! simple reflection
                         if (P(ii,3) >=Zmax) then
-                          if (Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) < 1.0) &
+                        !  if (Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) < 1.0) &
                                P(ii,3) = Zmax- (P(ii,3) - Zmax)
                         end if
                         if (P(ii,1) >=Xmax) P(ii,1) = Xmax- (P(ii,1) - Xmax)
@@ -955,7 +986,11 @@ do kk = 1, pfnt
         !$OMP END DO NOWAIT
         !$OMP FLUSH
         !$OMP END PARALLEL
+        call system_clock(T2)
+        parallel_time = parallel_time + (T2-T1)
 
+
+call system_clock(T1)
 
 !ipwrite = 1
 ! write all active particles at concentration
@@ -987,6 +1022,8 @@ call vtk_write(Time_Next(kk),C,conc_header,nx,ny,nz,kk,n_constituents,Pnts,vtk_f
 
 !! reset C
 C = 0.0D0
+call system_clock(T2)
+IO_time_write = IO_time_write + (T2-T1)
 
 end do !! timesteps
 
@@ -1000,7 +1037,7 @@ end do !! timesteps
                !!  code exits gracefully (writes files and possibly a restart file so the user can
                !!  re-run the simulation)
 
-
+call system_clock(T1)
 ! Create/open/write the final particles' locations and residence time, should make this binary and
 ! make this contain ALL particle attributes to act as a restart file
 open(13,file=trim(runname)//'_endparticle.txt')
@@ -1074,13 +1111,21 @@ end do
 flush(13)
 ! close ET file
 close(13)
+call system_clock(T2)
+IO_time_write = IO_time_write + (T2-T1)
 
-! close the log file
-close(11)
 
-        call system_clock(T2)
+        call system_clock(Total_time2)
 
-        print*, 'Time:',T2-T1
+        Write(11,*), 'Execution Finished.'
+        write(11,*)
+        Write(11,*), 'Total Execution Time (s):',float(Total_time2-Total_time1)/1000.
+        Write(11,*), 'File IO Time Read (s):',float(IO_time_read)/1000.
+        Write(11,*), 'File IO Time Write (s):',float(IO_time_write)/1000.
+        Write(11,*), 'Parallel Particle Time (s):',float(parallel_time)/1000.
+        write(11,*)
+        ! close the log file
+        close(11)
    end program EcoSLIM
    !
 !-----------------------------------------------------------------------
