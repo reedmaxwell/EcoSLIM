@@ -276,20 +276,24 @@ read(10,*) pname
 
 ! open/create/write the output log.txt file. If doesn't exist, it's created.
 open(11,file=trim(runname)//'_log.txt')
-write(11,*) 'EcoSLIM Log File'
+write(11,*) '### EcoSLIM Log File'
+write(11,*)
 write(11,*) 'run name:',trim(runname)
+write(11,*)
+write(11,*) 'ParFlow run name:',trim(pname)
+write(11,*)
 
 ! open/create/write the 3D output file
-open(12,file=trim(runname)//'_particle.3D')
-write(12,*) 'X Y Z TIME'
+!open(12,file=trim(runname)//'_particle.3D')
+!write(12,*) 'X Y Z TIME'
 
 ! open/create/write ET particle output file
-open(21,file=trim(runname)//'_ET_particle.txt')
-write(21,*) 'TIME X Y Z Age Flux Source'
+!open(21,file=trim(runname)//'_ET_particle.txt')
+!write(21,*) 'TIME X Y Z Age Flux Source'
 
 ! open/create/write Outflow particle output file
-open(22,file=trim(runname)//'_Outflow_particle.txt')
-write(22,*) 'TIME X Y Z Age Flux Source'
+!open(22,file=trim(runname)//'_Outflow_particle.txt')
+!write(22,*) 'TIME X Y Z Age Flux Source'
 
 ! read domain number of cells and number of partciels to be injected
 read(10,*) nx
@@ -393,9 +397,9 @@ end do
 !Time_Next(pfnt) = Time_Next(pfnt-1) + 1.0E15
 
 ! read in bounds for the particles initial locations
-read(10,*) Xlow, Xhi
-read(10,*) Ylow, Yhi
-read(10,*) Zlow, Zhi
+!read(10,*) Xlow, Xhi
+!read(10,*) Ylow, Yhi
+!read(10,*) Zlow, Zhi
 
 ! read in velocity multiplier
 read(10,*) V_mult
@@ -410,31 +414,36 @@ read(10,*) iflux_p_res
 read(10,*) denh2o
 
 !! right now, hard wire moldiff as effective rate from Barnes/Allison 88
-moldiff = (1.15e-9)*3600.d0
-moldiff = 0.0D0
+!moldiff = (1.15e-9)*3600.d0
+!moldiff = 0.0D0
+
+! read in diffusivity
+read(10,*) denh2o
 
 !! right now, hard wire evap fractionation as effective rate from Barnes/Allison 88
-Efract = (1.15e-9)*3600.d0
+!Efract = (1.15e-9)*3600.d0
+
+read(10,*) Efract
 
 ! fraction of dx/Vx
 read(10,*) dtfrac
 
 !wite out log file
-write(11,*) 'dx:',dx
-write(11,*) 'dy:',dy
-write(11,*) 'dz:',dz(1:nz)
-write(11,*) 'pfdt:',pfdt
-write(11,*) 'pfnt:',pfnt
-write(11,*) 'Initial Condition Info'
-write(11,*) 'X low:',Xlow,' X high:',Xhi
-write(11,*) 'Y low:',Ylow,' Y high:',Yhi
-write(11,*) 'Z low:',Zlow,' Z high:',Zhi
+write(11,'("dx:",e12.5)') dx
+write(11,'("dy:",e12.5)') dy
+write(11,'("dz:",*(e12.5,", "))') dz(1:nz)
+write(11,'("ParFlow delta-T, pfdt:",e12.5)') pfdt
+write(11,'("ParFlow timesteps, pfnt:",i12)') pfnt
+!write(11,*) 'Initial Condition Info'
+!write(11,*) 'X low:',Xlow,' X high:',Xhi
+!write(11,*) 'Y low:',Ylow,' Y high:',Yhi
+!write(11,*) 'Z low:',Zlow,' Z high:',Zhi
 write(11,*)
 write(11,*) 'V mult: ',V_mult,' for forward/backward particle tracking'
 write(11,*) 'CLM Trans: ',clmtrans,' adds / removes particles based on LSM fluxes'
 write(11,*) 'denh2o: ',denh2o,' water density'
 
-write(11,*) 'dtfrac: ',dtfrac,' fraction of dx/Vx'
+write(11,'("dtfrac: ",e12.5," fraction of dx/Vx")') dtfrac
 
 ! end of SLIM input
 close(10)
@@ -464,11 +473,10 @@ end do
 
 
 write(11,*)
-write(11,*) 'Domain Info'
-write(11,*) 'Xmin:',Xmin,' Xmax:',Xmax
-write(11,*) 'Ymin:',Ymin,' Ymax:',Ymax
-write(11,*) 'Zmin:',Zmin,' Zmax:',Zmax
-
+write(11,*) '## Domain Info'
+write(11,'("Xmin:",e12.5," Xmax:",e12.5)') Xmin, Xmax
+write(11,'("Ymin:",e12.5," Ymax:",e12.5)') Ymin, Ymax
+write(11,'("Zmin:",e12.5," Zmax:",e12.5)') Zmin, Zmax
 
 !! DEM set to zero but will be read in as input
 
@@ -808,7 +816,7 @@ do kk = 1, pfnt
 
 !               write(22,220) Time_Next(kk), P(ii,1), P(ii,2), P(ii,3), P(ii,4), P(ii,6), P(ii,7)
     220         FORMAT(7(e12.5))
-                flush(21)
+!                flush(21)
 !                !flag particle as inactive
                 P(ii,8) = 0.0d0
                 goto 999
@@ -1129,12 +1137,12 @@ IO_time_write = IO_time_write + (T2-T1)
 
         call system_clock(Total_time2)
 
-        Write(11,*), 'Execution Finished.'
+        Write(11,*) 'Execution Finished.'
         write(11,*)
-        Write(11,*), 'Total Execution Time (s):',float(Total_time2-Total_time1)/1000.
-        Write(11,*), 'File IO Time Read (s):',float(IO_time_read)/1000.
-        Write(11,*), 'File IO Time Write (s):',float(IO_time_write)/1000.
-        Write(11,*), 'Parallel Particle Time (s):',float(parallel_time)/1000.
+        Write(11,'("Total Execution Time (s):",e12.5)') float(Total_time2-Total_time1)/1000.
+        Write(11,'("File IO Time Read (s):",e12.5)')float(IO_time_read)/1000.
+        Write(11,'("File IO Time Write (s):",e12.5)') float(IO_time_write)/1000.
+        Write(11,'("Parallel Particle Time (s):",e12.5)') float(parallel_time)/1000.
         write(11,*)
         ! close the log file
         close(11)

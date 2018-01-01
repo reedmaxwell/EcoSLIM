@@ -32,12 +32,11 @@ SLIM_hillslope   ! SLIM run name, path to ParFlow files follows
 0.1, 0.1, 0.1, 0.1, 0.1
 1.0         ! ParFlow DT
 1752        ! Parflow NT (two years)
-1.0, 99.0   ! Xlow, Xhi for IC
-0.45, 0.55  ! Ylow, Yhi for IC
-0.1, 4.9    ! Zlow, Zhi for IC
 1.0d0       ! velocity multiplier 1.0=forward, -1.0=backward
 True        ! CLM Evap Trans
 10          ! number of particles per Evap Trans IC
 1000.0      ! density H2O
+0.00000414   ! Molecular Diffusivity
+0.001        ! Fractionation  
 0.5d0       ! fraction of Dx/Vx for numerical stability
 ```
