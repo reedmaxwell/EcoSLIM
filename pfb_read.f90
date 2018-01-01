@@ -1,4 +1,4 @@
- subroutine pfb_read(value,fname,nx,ny,nz) 
+ subroutine pfb_read(value,fname,nx,ny,nz)
   implicit none
   real*8 value(nx,ny,nz)
   real*8 dx, dy, dz, x1, y1, z1
@@ -16,7 +16,7 @@ access='stream',convert='BIG_ENDIAN')         !binary outputfile of Parflow
 
 ! Start: reading of domain spatial information
   read(100) x1 !X
-  read(100) y1 !Y 
+  read(100) y1 !Y
   read(100) z1 !Z
 
 !print*, x1, y1, z1
