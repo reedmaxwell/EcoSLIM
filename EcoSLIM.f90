@@ -8,6 +8,7 @@
 ! Developed by: Reed Maxwell-August 2016 (rmaxwell@mines.edu)
 !
 ! Contributors: Mohammad Danesh-Yazdi (danesh@mines.edu)
+!               Laura Condon (lecondon@syr.edu)
 !               Lindsay Bearup (lbearup@usbr.gov)
 !
 ! released under GNU LPGL, see LICENSE file for details
@@ -331,7 +332,7 @@ nzclm = 13+nCLMsoil ! CLM output is 13+nCLMsoil layers for different variables n
            ! layer setup)
 
 !  number of things written to C array, hard wired at 2 now for Testing
-n_constituents = 4
+n_constituents = 5
 !allocate arrays
 allocate(PInLoc(np,3))
 allocate(Sx(nx,ny),Sy(nx,ny), DEM(nx,ny))
@@ -610,13 +611,14 @@ flush(11)
 where (C(3,:,:,:)>0.0)  C(2,:,:,:) = C(2,:,:,:) / C(3,:,:,:)
 where (C(3,:,:,:)>0.0)  C(4,:,:,:) = C(4,:,:,:) / C(3,:,:,:)
 
-  n_constituents = 4
+  n_constituents = 5
   icwrite = 1
   vtk_file=trim(runname)//'_cgrid'
 conc_header(1) = 'Concentration'
 conc_header(2) = 'Age'
 conc_header(3) = 'Mass'
 conc_header(4) = 'Comp'
+conc_header(5) = 'Delta'
 
 if(icwrite == 1)  &
 call vtk_write(0.0d0,C,conc_header,nx,ny,nz,kk,n_constituents,Pnts,vtk_file)
@@ -728,6 +730,7 @@ do kk = 1, pfnt
         else
         P(ii,7) = 2.d0 ! Rainfall composition
         end if
+        P(ii,9) = 1.0d0 
         !print*, i,j,k,P(ii,1:6),ii,np_active
         else
         write(11,*) ' **Warning rainfall input but no paricles left'
@@ -957,7 +960,7 @@ do kk = 1, pfnt
 
 !!  Apply fractionation if we are in the top cell
 !!
-                        if (Ploc(3) == nz-1)  P(ii,9) = P(ii,9) -Efract*particledt*100.
+                        if (Ploc(3) == nz-1)  P(ii,9) = P(ii,9) -Efract*particledt*CLMvars(Ploc(1)+1,Ploc(2)+1,7)
                         ! changes made in Ploc
                         if(Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) == 1.0) P(ii,5) = P(ii,5) + particledt
                         ! simple reflection
@@ -997,6 +1000,8 @@ do kk = 1, pfnt
                                 C(4,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) = C(4,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) + P(ii,8)*P(ii,7)*P(ii,6)
                                 !$OMP Atomic
                                 C(3,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) = C(3,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) + P(ii,8)*P(ii,6)
+                                !$OMP Atomic
+                                C(5,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) = C(5,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) + P(ii,8)*P(ii,9)*P(ii,6)
         !                    write(14,61) P(ii,1), P(ii,2), P(ii,3), P(ii,9)
         end if   !! check if particle is active
         ! format statements lying around, should redo the way this is done
@@ -1028,14 +1033,16 @@ end if
 ! normalize ages by mass
 where (C(3,:,:,:)>0.0)  C(2,:,:,:) = C(2,:,:,:) / C(3,:,:,:)
 where (C(3,:,:,:)>0.0)  C(4,:,:,:) = C(4,:,:,:) / C(3,:,:,:)
+where (C(3,:,:,:)>0.0)  C(5,:,:,:) = C(5,:,:,:) / C(3,:,:,:)
 
-  n_constituents = 4
+  n_constituents = 5
   icwrite = 1
   vtk_file=trim(runname)//'_cgrid'
 conc_header(1) = 'Concentration'
 conc_header(2) = 'Age'
 conc_header(3) = 'Mass'
 conc_header(4) = 'Comp'
+conc_header(5) = 'Delta'
 
 if(icwrite == 1)  &
 call vtk_write(Time_Next(kk),C,conc_header,nx,ny,nz,kk,n_constituents,Pnts,vtk_file)
