@@ -419,7 +419,7 @@ read(10,*) denh2o
 !moldiff = 0.0D0
 
 ! read in diffusivity
-read(10,*) denh2o
+read(10,*) moldiff
 
 !! right now, hard wire evap fractionation as effective rate from Barnes/Allison 88
 !Efract = (1.15e-9)*3600.d0
@@ -443,6 +443,8 @@ write(11,*)
 write(11,*) 'V mult: ',V_mult,' for forward/backward particle tracking'
 write(11,*) 'CLM Trans: ',clmtrans,' adds / removes particles based on LSM fluxes'
 write(11,*) 'denh2o: ',denh2o,' water density'
+write(11,*) 'Molecular Diffusivity: ',moldiff,' water density'
+write(11,*) 'Fractionation: ',Efract,' water density'
 
 write(11,'("dtfrac: ",e12.5," fraction of dx/Vx")') dtfrac
 
@@ -713,7 +715,7 @@ do kk = 1, pfnt
         Z = Z + dz(ik)
         end do
         ! Z location is fixed
-        P(ii,3) = Z -dz(k)*0.1d0 !  *ran1(ir)
+        P(ii,3) = Z -dz(k)*0.5d0 !  *ran1(ir)
         PInLoc(ii,3) = P(ii,3)
 
         ! assign zero time and flux of water
@@ -730,7 +732,7 @@ do kk = 1, pfnt
         else
         P(ii,7) = 2.d0 ! Rainfall composition
         end if
-        P(ii,9) = 1.0d0 
+        P(ii,9) = 1.0d0
         !print*, i,j,k,P(ii,1:6),ii,np_active
         else
         write(11,*) ' **Warning rainfall input but no paricles left'
@@ -802,7 +804,7 @@ do kk = 1, pfnt
                 !do k = 1, nz
                 !Z = Z + dz(k)
                 !end do
-                if ( (P(ii,3) >= Zmax-(dz(nz)*0.1d0)).and.   &
+                if ( (P(ii,3) >= Zmax-(dz(nz)*0.5d0)).and.   &
                 (Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)  == 1.0) ) then
                 itime_loc = kk
                 if (itime_loc <= 0) itime_loc = 1
@@ -879,10 +881,17 @@ do kk = 1, pfnt
                         ! calculate particle dt
                         ! check each direction independently
                         advdt = pfdt
-                        if (Vpx /= 0.0d0) advdt(1) = dabs(dtfrac*(dx/Vpx))
-                        if (Vpy /= 0.0d0) advdt(2) = dabs(dtfrac*(dx/Vpy))
-                        if (Vpz /= 0.0d0) advdt(3) = dtfrac*(dz(Ploc(3)+1)/dabs(Vpz))
-                        particledt = min(advdt(1),advdt(2), advdt(3), &
+                        !if (Vpx /= 0.0d0) advdt(1) = dabs(dtfrac*(dx/Vpx))
+                        !if (Vpy /= 0.0d0) advdt(2) = dabs(dtfrac*(dx/Vpy))
+                        !if (Vpz /= 0.0d0) advdt(3) = dtfrac*(dz(Ploc(3)+1)/dabs(Vpz))
+                        if (Vpx > 0.0d0) advdt(1) = dabs(((1.0d0-Clocx)*dx)/Vpx)
+                        if (Vpx < 0.0d0) advdt(1) = dabs((Clocx*dx)/Vpx)
+                        if (Vpy > 0.0d0) advdt(2) = dabs(((1.0d0-Clocy)*dy)/Vpy)
+                        if (Vpy < 0.0d0) advdt(2) = dabs((Clocy*dy)/Vpy)
+                        if (Vpz > 0.0d0) advdt(3) = (((1.0d0-Clocz)*dz(Ploc(3)+1))/dabs(Vpz))
+                        if (Vpz < 0.0d0) advdt(3) = ((Clocz*dz(Ploc(3)+1))/dabs(Vpz))
+
+                        particledt = min(advdt(1)+1.0E-5,advdt(2)+1.0E-5, advdt(3)+1.0E-5, &
                                   pfdt*dtfrac  ,delta_time-P(ii,4)+1.0E-5)
 
                         ! calculate Flux in cell and compare it with the ET flux out of the cell
@@ -927,7 +936,7 @@ do kk = 1, pfnt
                         ET_np(itime_loc) = ET_np(itime_loc) + 1
                         ! subtract flux from particle, remove from domain
 
-                        P(ii,6) = P(ii,6) - et_flux*particledt*denh2o
+                        !P(ii,6) = P(ii,6) - et_flux*particledt*denh2o
 
 !                        if (P(ii,6) <= 0.0d0) then
 !                        write(21,220) Time_Next(kk), P(ii,1), P(ii,2), P(ii,3), P(ii,4), et_flux*particledt*denh2o, P(ii,7)
