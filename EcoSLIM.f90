@@ -442,9 +442,9 @@ write(11,'("ParFlow timesteps, pfnt:",i12)') pfnt
 write(11,*)
 write(11,*) 'V mult: ',V_mult,' for forward/backward particle tracking'
 write(11,*) 'CLM Trans: ',clmtrans,' adds / removes particles based on LSM fluxes'
-write(11,*) 'denh2o: ',denh2o,' water density'
-write(11,*) 'Molecular Diffusivity: ',moldiff,' water density'
-write(11,*) 'Fractionation: ',Efract,' water density'
+write(11,*) 'denh2o: ',denh2o,' M/L^3'
+write(11,*) 'Molecular Diffusivity: ',moldiff,' '
+write(11,*) 'Fractionation: ',Efract,' '
 
 write(11,'("dtfrac: ",e12.5," fraction of dx/Vx")') dtfrac
 
