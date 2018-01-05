@@ -15,6 +15,14 @@ To build simply type `make` in the main window, to set number of parallel thread
 `export OMP_NUM_THREADS=16` for bash or
 `setenv OMP_NUM_THREADS 16` for t/c-shell.
 
+To run you will need to have a completed ParFlow simulation and a
+EcoSLIM input file that must be named `slimin.txt` and follow the
+format described below. Note that this file does not need to be co-located
+with the ParFlow simulation.  
+
+To run simply execute `EcoSLIM.exe` from the directory that contains the
+`slimin.txt` input file.
+
 `slimin.txt`  Main input file. Includes domain geometry, **ParFlow** timing and input, total number of particles,   initial conditions and information about **CLM**.
 
 ### Example format for this file
