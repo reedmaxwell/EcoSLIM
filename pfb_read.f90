@@ -4,7 +4,7 @@
   real*8 dx, dy, dz, x1, y1, z1
   integer*4 i,j,k, nni, nnj, nnk, ix, iy, iz,&
             ns,  rx, ry, rz,nx,ny,nz, nnx, nny, nnz,is
-  character*100 fname
+  character*200 fname
 
 !print*, nx, ny, nz, fname
 
