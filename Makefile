@@ -1,19 +1,22 @@
 objects = \
+	ran1.mod.o \
 	EcoSLIM.o  \
 	pfb_read.o \
 	vtk_write.o \
-	ran1.mod.o \
 	vtk_write_points.o
 
 
 .SUFFIXES:
-.SUFFIXES:  .o .f90
+.SUFFIXES:  .mod .o .f90
 
 EcoSLIM.exe : $(objects)
 		gfortran -fopenmp  -O3 -o EcoSLIM.exe $(objects)
 
 .f90.o :
 		gfortran -fopenmp -O3 -c $<
+
+##ran1.mod.mod :
+##		gfortran -fopenmp -O3 -c ran1.mod.f90 $<
 
 .PHONY : clean
 	clean :
