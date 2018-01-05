@@ -221,6 +221,7 @@ integer, allocatable:: ET_np(:), Out_np(:)
 real*8  ET_dt, DR_Temp
         ! time interval for ET
 integer  Total_time1, Total_time2, t1, t2, IO_time_read, IO_time_write, parallel_time, ipwrite
+integer ibinpntswrite
 
 interface
   SUBROUTINE vtk_write(time,x,conc_header,ixlim,iylim,izlim,icycle,n_constituents,Pnts,vtk_file)
@@ -238,6 +239,16 @@ interface
   INTEGER                :: n_constituents
   CHARACTER (LEN=200)    :: vtk_file
 end subroutine vtk_write
+
+SUBROUTINE vtk_write_points(P,np_active, np,icycle,vtk_file)
+REAL*8    :: P(:,:)
+INTEGER                :: icycle
+INTEGER*4              :: np_active
+INTEGER*4              :: np
+INTEGER                :: n_constituents
+CHARACTER (LEN=200)    :: vtk_file
+end subroutine vtk_write_points
+
 end interface
 
 !Set up timing
@@ -1055,6 +1066,11 @@ conc_header(5) = 'Delta'
 
 if(icwrite == 1)  &
 call vtk_write(Time_Next(kk),C,conc_header,nx,ny,nz,kk,n_constituents,Pnts,vtk_file)
+
+vtk_file=trim(runname)//'_pnts'
+ibinpntswrite = 1
+if(ibinpntswrite == 1)  &
+call vtk_write_points(P,np_active,np,kk,vtk_file)
 
 !! reset C
 C = 0.0D0

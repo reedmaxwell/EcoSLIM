@@ -2,7 +2,8 @@ objects = \
 	EcoSLIM.o  \
 	pfb_read.o \
 	vtk_write.o \
-	ran1.mod.o
+	ran1.mod.o \
+	vtk_write_points.o
 
 
 .SUFFIXES:
