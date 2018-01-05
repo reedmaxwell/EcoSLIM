@@ -1080,6 +1080,20 @@ C = 0.0D0
 call system_clock(T2)
 IO_time_write = IO_time_write + (T2-T1)
 
+!! sort particles to move inactive ones to the end and active ones up
+np_active2 = np_active
+do ii = np_active
+  !! check if particle is inactive
+  if (P(ii,8) == 0.0) then
+  ! exchange with the last particle
+  P(ii,:) = P(np_active2,:)
+  np_active = np_active -1
+  end if
+  ! if we have looped all the way through our active particles exit 
+  if (np_active > np_active2) exit
+end do ! particles
+  write(11,*) 'Timestep:', kk, 'filtered, np_active_old:',np_active,' now ',np_active2,' particles'
+
 end do !! timesteps
 
 ! Close 3D file
