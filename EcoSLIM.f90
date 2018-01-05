@@ -135,7 +135,7 @@ integer Ploc(3)
 integer nx, nnx, ny, nny, nz, nnz
         ! number of cells in the domain and cells+1 in x, y, and z directions
 
-integer np_ic, np, np_active, icwrite, jj, npnts, ncell
+integer np_ic, np, np_active, np_active2, icwrite, jj, npnts, ncell
         ! number of particles for intial pulse IC, total, and running active
 
 integer nt, n_constituents
@@ -174,9 +174,10 @@ real*8 V_mult
         ! If V_mult = 1, forward tracking
         ! If V_mult = -1, backward tracking
 
-logical clmtrans
-        ! logical for mode of operation wirth CLM, will add particles with P-ET > 0
+logical clmtrans, clmfile
+        ! logical for mode of operation with CLM, will add particles with P-ET > 0
         ! will remove particles if ET > 0
+        ! clmfile governs reading of the full CLM output, not just evaptrans
 
 real*8 dtfrac
         ! fraction of dx/Vx (as well as dy/Vy and dz/Vz) assuring
@@ -418,6 +419,7 @@ read(10,*) V_mult
 
 ! read in clm flux
 read(10,*) clmtrans
+clmfile = .False.   !!!@RMM hard wired for test case, need to make this input
 
 ! read in IC number of particles for flux
 read(10,*) iflux_p_res
@@ -676,9 +678,12 @@ do kk = 1, pfnt
         ! Read in the Evap_Trans
         fname=trim(adjustl(pname))//'.out.evaptrans.'//trim(adjustl(filenum))//'.pfb'
         call pfb_read(EvapTrans,fname,nx,ny,nz)
-        ! Read in CLM output file
-!        fname=trim(adjustl(pname))//'.out.clm_output.'//trim(adjustl(filenum))//'.C.pfb'
-!        call pfb_read(CLMvars,fname,nx,ny,nzclm)
+        ! check if we read full CLM output file
+        if (clmfile) then
+         !Read in CLM output file
+        fname=trim(adjustl(pname))//'.out.clm_output.'//trim(adjustl(filenum))//'.C.pfb'
+        call pfb_read(CLMvars,fname,nx,ny,nzclm)
+        end if
         end if
 
         call system_clock(T2)
@@ -1082,17 +1087,18 @@ IO_time_write = IO_time_write + (T2-T1)
 
 !! sort particles to move inactive ones to the end and active ones up
 np_active2 = np_active
-do ii = np_active
+do ii = 1, np_active
   !! check if particle is inactive
   if (P(ii,8) == 0.0) then
   ! exchange with the last particle
   P(ii,:) = P(np_active2,:)
-  np_active = np_active -1
+  np_active2 = np_active2 -1
   end if
-  ! if we have looped all the way through our active particles exit 
-  if (np_active > np_active2) exit
+  ! if we have looped all the way through our active particles exit
+  if (ii > np_active2) exit
 end do ! particles
   write(11,*) 'Timestep:', kk, 'filtered, np_active_old:',np_active,' now ',np_active2,' particles'
+np_active = np_active2
 
 end do !! timesteps
 
