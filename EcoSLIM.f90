@@ -677,8 +677,8 @@ do kk = 1, pfnt
         fname=trim(adjustl(pname))//'.out.evaptrans.'//trim(adjustl(filenum))//'.pfb'
         call pfb_read(EvapTrans,fname,nx,ny,nz)
         ! Read in CLM output file
-        fname=trim(adjustl(pname))//'.out.clm_output.'//trim(adjustl(filenum))//'.C.pfb'
-        call pfb_read(CLMvars,fname,nx,ny,nzclm)
+!        fname=trim(adjustl(pname))//'.out.clm_output.'//trim(adjustl(filenum))//'.C.pfb'
+!        call pfb_read(CLMvars,fname,nx,ny,nzclm)
         end if
 
         call system_clock(T2)
@@ -732,11 +732,11 @@ do kk = 1, pfnt
         ! assign zero time and flux of water
         ! time is assigned randomly over the recharge time to represent flux over the
         ! PF DT
-        P(ii,4) = 0.0d0+ran1(ir)*pfdt
+        P(ii,4) = 0.0d0 +ran1(ir)*pfdt
         P(ii,5) = 0.0d0
         ! mass of water flux into the cell divided up among the particles assigned to that cell
         P(ii,6) = (1.0d0/float(iflux_p_res))   &
-                  *(P(ii,4)*EvapTrans(i,j,k)*dx*dy*dz(k))*denh2o  !! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass
+                  *P(ii,4)*EvapTrans(i,j,k)*dx*dy*dz(k)*denh2o  !! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass
         !! check if input is rain or snowmelt
         if(CLMvars(i,j,11) > 0.0) then !this is snowmelt
         P(ii,7) = 3.0d0 ! Snow composition
@@ -917,6 +917,7 @@ do kk = 1, pfnt
 
                         ! calculate ET flux volumetrically and compare to
                         et_flux = abs(EvapTrans(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))*dx*dy*dz(Ploc(3)+1)
+
                         ! compare total water removed from cell by ET with total water available in cell to arrive at a particle
                         ! probability of being captured by roots
                         ! water volume in cell
@@ -929,6 +930,7 @@ do kk = 1, pfnt
                         if (itime_loc >= pfnt) itime_loc = pfnt
 
                         Zr = ran1(ir)
+!                        print*, kk, et_flux, water_vol, Zr, particledt, (et_flux*particledt)/water_vol
 !                        print*, P(ii,6),P(ii,7),et_flux, water_vol, et_flux*particledt*denh2o !Zr,(et_flux*particledt)/water_vol,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1
                         if (Zr < ((et_flux*particledt)/water_vol)) then   ! check if particle is 'captured' by the roots
 !                        if (Zr < ((et_flux*particledt*denh2o)/P(ii,6))) then   ! check if particle is 'captured' by the roots
@@ -946,6 +948,7 @@ do kk = 1, pfnt
                         !$OMP ATOMIC
                         ET_np(itime_loc) = ET_np(itime_loc) + 1
                         ! subtract flux from particle, remove from domain
+                        !print*, particledt, pfdt
 
                         !P(ii,6) = P(ii,6) - et_flux*particledt*denh2o
 
@@ -980,7 +983,7 @@ do kk = 1, pfnt
 
 !!  Apply fractionation if we are in the top cell
 !!
-                        if (Ploc(3) == nz-1)  P(ii,9) = P(ii,9) -Efract*particledt*CLMvars(Ploc(1)+1,Ploc(2)+1,7)
+!                        if (Ploc(3) == nz-1)  P(ii,9) = P(ii,9) -Efract*particledt*CLMvars(Ploc(1)+1,Ploc(2)+1,7)
                         ! changes made in Ploc
                         if(Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) == 1.0) P(ii,5) = P(ii,5) + particledt
                         ! simple reflection

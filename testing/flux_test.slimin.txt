@@ -1,0 +1,19 @@
+SLIM_flux_test   ! SLIM run name
+"/Users/reed/Projects/EcoSLIM/flux_hillslope/flux_hillslope"
+30    !nx
+3     !ny
+30     !nz
+10   !particles per cell at start of simulation
+500000   !np Total
+1.0     !dx
+1.0     !dy, dz follows
+0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05
+0.10   ! ParFlow DT
+25        ! Parflow NT
+1.0d0       ! velocity multiplier 1.0=forward, -1.0=backward
+True           ! CLM Evap Trans
+0          ! number of particles per Evap Trans IC
+1000.0       ! density H2O 
+0.00000   ! Molecular Diffusivity 
+0.00        ! Fractionation  
+0.25d0        ! fraction of Dx/Vx for numerical stability
