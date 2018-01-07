@@ -381,14 +381,10 @@ read(10,*) dz(1:nz)
 ! read in (constant for now) ParFlow dt
 read(10,*) pfdt
 
-! read in (constant for now) ParFlow nt
-! read(10,*) pfnt
-
 ! read in parflow start and stop times
 read(10,*) pft1
 read(10,*) pft2
 pfnt=pft2-pft1+1
-!print*, pft1, pft2, pfnt
 
 ! set ET DT to ParFlow one and allocate ET arrays accordingly
 ET_dt = pfdt
@@ -417,20 +413,6 @@ end do
 
 Time_first = float(pft1-1)*pfdt
 
-
-! Uncomment the following line if all particles are wanted
-! to exit the domain -- holds only for steady state case.
-! For unsteady case, only holds if the maximum of all
-! particles travel time is less or equal than the ParFlow
-! running time.
-
-!Time_Next(pfnt) = Time_Next(pfnt-1) + 1.0E15
-
-! read in bounds for the particles initial locations
-!read(10,*) Xlow, Xhi
-!read(10,*) Ylow, Yhi
-!read(10,*) Zlow, Zhi
-
 ! read in velocity multiplier
 read(10,*) V_mult
 
@@ -444,17 +426,12 @@ read(10,*) iflux_p_res
 ! read in density h2o
 read(10,*) denh2o
 
-!! right now, hard wire moldiff as effective rate from Barnes/Allison 88
-!moldiff = (1.15e-9)*3600.d0
-!moldiff = 0.0D0
-
 ! read in diffusivity
+!moldiff = (1.15e-9)*3600.d0
 read(10,*) moldiff
 
-!! right now, hard wire evap fractionation as effective rate from Barnes/Allison 88
-!Efract = (1.15e-9)*3600.d0
-
-read(10,*) Efract
+!saving Efract for a later time
+!read(10,*) Efract
 
 ! fraction of dx/Vx
 read(10,*) dtfrac
@@ -873,26 +850,6 @@ do kk = 1, pfnt
                 ! otherwise we just leave it in the domain to reflect
                 end if
 
-
-!! broken logic here for history; should remove when BC approach is finalized
-! Check if the particle is still in domain. If not, go to the next particle
-!  and tag this particle as inactive
-!if ((P(ii,1) < Xmim).or.(P(ii,2)<Ymin).or.(P(ii,3)<Zmin).or. &
-!(P(ii,1)>Xmax).or.(P(ii,2)>Ymax).or.(P(ii,3)>Zmax)) then
-!Write out the particle's new location X, Y, Z and its time
-!in the 3D file
-!write(12,61) P(ii,1), P(ii,2), P(ii,3), P(ii,4)
-!61  FORMAT(4(e12.5))
-!flush(12)
-!exit
-!else
-!P(ii,8) = 1.0
-! Write out the particle's new location X, Y, Z and its time
-! in the 3D file
-!write(12,62) P(ii,1), P(ii,2), P(ii,3), P(ii,4)
-!62  FORMAT(4(e12.5))
-!flush(12)
-!end if
                         ! Find each particle's factional cell location
                         Clocx = (P(ii,1) - float(Ploc(1))*dx)  / dx
                         Clocy = (P(ii,2) - float(Ploc(2))*dy)  / dy
@@ -939,7 +896,6 @@ do kk = 1, pfnt
 
                         ! calculate Flux in cell and compare it with the ET flux out of the cell
                         if (EvapTrans(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) < 0.0d0)then
-!print*, EvapTrans(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1), Ploc(1)+1,Ploc(2)+1,Ploc(3)+1
 
                         ! calculate divergence of Darcy flux in the cell
                         !  in X, Y, Z [L^3 / T]
@@ -962,41 +918,27 @@ do kk = 1, pfnt
                         if (itime_loc >= pfnt) itime_loc = pfnt
 
                         Zr = ran1(ir)
-!                        print*, kk, et_flux, water_vol, Zr, particledt, (et_flux*particledt)/water_vol
-!                        print*, P(ii,6),P(ii,7),et_flux, water_vol, et_flux*particledt*denh2o !Zr,(et_flux*particledt)/water_vol,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1
                         if (Zr < ((et_flux*particledt)/water_vol)) then   ! check if particle is 'captured' by the roots
-!                        if (Zr < ((et_flux*particledt*denh2o)/P(ii,6))) then   ! check if particle is 'captured' by the roots
                         !  this section made atomic since it could inovlve a data race
                         !$OMP ATOMIC
                         ET_age(itime_loc,1) = ET_age(itime_loc,1) + P(ii,4)*P(ii,6)
                         !$OMP ATOMIC
                         ET_mass(itime_loc,2) = ET_mass(itime_loc,2)  +  P(ii,6)
-                        !$OMP ATOMIC
-                        ET_mass(itime_loc,1) = ET_mass(itime_loc,1)  + et_flux*particledt*denh2o
+!                        !$OMP ATOMIC
+!                        ET_mass(itime_loc,1) = ET_mass(itime_loc,1)  + et_flux*particledt*denh2o
 !!                        !$OMP ATOMIC
 !                        ET_mass(itime_loc,3) = ET_mass(itime_loc,3)  + P(ii,6)
                         !$OMP ATOMIC
                         ET_comp(itime_loc,1) = ET_comp(itime_loc,1) + P(ii,7)*P(ii,6)
                         !$OMP ATOMIC
                         ET_np(itime_loc) = ET_np(itime_loc) + 1
-                        ! subtract flux from particle, remove from domain
-                        !print*, particledt, pfdt
-
-                        !P(ii,6) = P(ii,6) - et_flux*particledt*denh2o
-
-!                        if (P(ii,6) <= 0.0d0) then
-!                        write(21,220) Time_Next(kk), P(ii,1), P(ii,2), P(ii,3), P(ii,4), et_flux*particledt*denh2o, P(ii,7)
-!                        flush(21)
+                        !  remove particle from domain
                             P(ii,8) = 0.0d0
                             goto 999
-!                            end if
                         end if
                         end if
 
                         ! Advect particle to new location using Euler advection until next time
-
-                        ! Update particle location, this won't involve a data race
-
                         P(ii,1) = P(ii,1) + particledt * Vpx
                         P(ii,2) = P(ii,2) + particledt * Vpy
                         P(ii,3) = P(ii,3) + particledt * Vpz
@@ -1013,16 +955,14 @@ do kk = 1, pfnt
                         P(ii,3) = P(ii,3) + z3 * DSQRT(moldiff*2.0D0*particledt)
                         end if
 
-!!  Apply fractionation if we are in the top cell
+!!  placeholder for other interactions; potentially added later
 !!
-!                        if (Ploc(3) == nz-1)  P(ii,9) = P(ii,9) -Efract*particledt*CLMvars(Ploc(1)+1,Ploc(2)+1,7)
-                        ! changes made in Ploc
+!!                        if (Ploc(3) == nz-1)  P(ii,9) = P(ii,9) -Efract*particledt*CLMvars(Ploc(1)+1,Ploc(2)+1,7)
+!!
+                        ! place to track saturated / groundwater time if needed
                         if(Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) == 1.0) P(ii,5) = P(ii,5) + particledt
                         ! simple reflection
-                        if (P(ii,3) >=Zmax) then
-                        !  if (Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) < 1.0) &
-                               P(ii,3) = Zmax- (P(ii,3) - Zmax)
-                        end if
+                        if (P(ii,3) >=Zmax) P(ii,3) = Zmax- (P(ii,3) - Zmax)
                         if (P(ii,1) >=Xmax) P(ii,1) = Xmax- (P(ii,1) - Xmax)
                         if (P(ii,2) >=Ymax) P(ii,2) = Ymax- (P(ii,2) - Ymax)
                         if (P(ii,2) <=Ymin) P(ii,2) = Ymin+ (Ymin - P(ii,2))
@@ -1057,8 +997,7 @@ do kk = 1, pfnt
                                 C(3,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) = C(3,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) + P(ii,8)*P(ii,6)
                                 !$OMP Atomic
                                 C(5,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) = C(5,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) + P(ii,8)*P(ii,9)*P(ii,6)
-        !                    write(14,61) P(ii,1), P(ii,2), P(ii,3), P(ii,9)
-        end if   !! check if particle is active
+        end if   !! end-if; check if particle is active
         ! format statements lying around, should redo the way this is done
         61  FORMAT(4(e12.5))
         62  FORMAT(4(e12.5))
