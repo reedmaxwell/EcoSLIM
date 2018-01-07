@@ -387,7 +387,7 @@ read(10,*) pfdt
 read(10,*) pft1
 read(10,*) pft2
 pfnt=pft2-pft1+1
-print*, pft1, pft2, pfnt
+!print*, pft1, pft2, pfnt
 
 ! set ET DT to ParFlow one and allocate ET arrays accordingly
 ET_dt = pfdt
@@ -683,7 +683,7 @@ do kk = 1, pfnt
         call system_clock(T1)
         !adust the file counters
         pfkk = pfkk + 1
-        print*, pfkk
+        !print*, pfkk
 
         ! Read the velocities computed by ParFlow
         write(filenum,'(i5.5)') pfkk
