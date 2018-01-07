@@ -28,7 +28,7 @@ pfset Process.Topology.R        1
 # inputs
 #---------------------------------------------------------
 #flux rate in m/hr that will be applied for both ET and precip
-set fluxrate 0.1
+set fluxrate 0.01
 
 #---------------------------------------------------------
 # Computational Grid
