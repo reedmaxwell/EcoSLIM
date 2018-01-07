@@ -16,5 +16,4 @@ True           ! CLM Evap Trans
 10          ! number of particles per Evap Trans IC
 1000.0       ! density H2O
 0.00000   ! Molecular Diffusivity
-0.00        ! Fractionation
 0.25d0        ! fraction of Dx/Vx for numerical stability

@@ -45,7 +45,6 @@ SLIM_hillslope   ! SLIM run name, path to ParFlow files follows
 True        ! CLM Evap Trans
 10          ! number of particles per Evap Trans IC
 1000.0      ! density H2O
-0.00000414   ! Molecular Diffusivity
-0.001        ! Fractionation  
+0.00000414   ! Molecular Diffusivity 
 0.5d0       ! fraction of Dx/Vx for numerical stability
 ```
