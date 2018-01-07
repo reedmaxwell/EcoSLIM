@@ -222,7 +222,7 @@ integer, allocatable:: ET_np(:), Out_np(:)
 real*8  ET_dt, DR_Temp
         ! time interval for ET
 integer  Total_time1, Total_time2, t1, t2, IO_time_read, IO_time_write, parallel_time, ipwrite
-integer ibinpntswrite
+integer ibinpntswrite, sort_time
 
 interface
   SUBROUTINE vtk_write(time,x,conc_header,ixlim,iylim,izlim,icycle,n_constituents,Pnts,vtk_file)
@@ -260,6 +260,7 @@ t2 = 0
 IO_time_read = 0
 IO_time_write = 0
 parallel_time = 0
+sort_time = 0
 
         call system_clock(Total_time1)
 
@@ -1085,18 +1086,33 @@ C = 0.0D0
 call system_clock(T2)
 IO_time_write = IO_time_write + (T2-T1)
 
+call system_clock(T1)
 !! sort particles to move inactive ones to the end and active ones up
 np_active2 = np_active
+
+! !$OMP PARALLEL SHARED(P, np_active, np_active2) &
+! !$OMP& Default(none)
+!
+! ! loop over active particles
+! !$OMP DO
 do ii = 1, np_active
   !! check if particle is inactive
   if (P(ii,8) == 0.0) then
   ! exchange with the last particle
+!  !$OMP CRITICAL
   P(ii,:) = P(np_active2,:)
   np_active2 = np_active2 -1
+!  !$OMP END CRITICAL
   end if
   ! if we have looped all the way through our active particles exit
   if (ii > np_active2) exit
 end do ! particles
+! !$OMP END DO NOWAIT
+! !$OMP END PARALLEL
+
+call system_clock(T2)
+sort_time = sort_time + (T2-T1)
+
   write(11,*) 'Timestep:', kk, 'filtered, np_active_old:',np_active,' now ',np_active2,' particles'
 np_active = np_active2
 
@@ -1197,6 +1213,7 @@ IO_time_write = IO_time_write + (T2-T1)
         Write(11,'("Total Execution Time (s):",e12.5)') float(Total_time2-Total_time1)/1000.
         Write(11,'("File IO Time Read (s):",e12.5)')float(IO_time_read)/1000.
         Write(11,'("File IO Time Write (s):",e12.5)') float(IO_time_write)/1000.
+        Write(11,'("Time Sorting (s):",e12.5)') float(sort_time)/1000.
         Write(11,'("Parallel Particle Time (s):",e12.5)') float(parallel_time)/1000.
         write(11,*)
         ! close the log file

@@ -15,9 +15,6 @@ EcoSLIM.exe : $(objects)
 .f90.o :
 		gfortran -fopenmp -O3 -c $<
 
-##ran1.mod.mod :
-##		gfortran -fopenmp -O3 -c ran1.mod.f90 $<
-
 .PHONY : clean
 	clean :
 		rm -f EcoSLIM.exe $(objects)

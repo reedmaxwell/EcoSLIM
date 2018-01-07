@@ -47,9 +47,7 @@ Write(15) "DATASET POLYDATA"//lf
 write(num1, '(i12)') np_active
 Write(15) "POINTS "//num1//" FLOAT"//lf
 write(15) ((real(P(j,i),kind=4), i=1,3), j=1,np_active)  ! This forces the expected write order
-          !((real(Pnts(i,j),kind=4), j=1,3), i=1,nxyzp1)
           write(15) lf
-
 write(15) "POINT_DATA "//num1//lf
 write(15) "SCALARS Time float"//lf
 Write(15) "LOOKUP_TABLE default"//lf
