@@ -145,10 +145,16 @@ real*8  pfdt, advdt(3)
         ! ParFlow timestep value, advection timestep for each direction
         ! for each individual particle step; used to chose optimal particle timestep
 
-integer pfnt
-        ! number of ParFlow timesteps
+integer pft1, pft2, pfnt
+        ! parflow start and stop file numbers number of ParFlow timesteps
+
+real*8  Time_first
+        ! initial timestep for Parflow ((pft1-1)*pfdt)
+
 integer kk
         ! Loop counter for the time steps (pfnt)
+integer pfkk
+       ! Counter for the file numbers starts at pft1
 integer ii
         ! Loop counter for the number of particles (np)
 integer iflux_p_res
@@ -376,7 +382,13 @@ read(10,*) dz(1:nz)
 read(10,*) pfdt
 
 ! read in (constant for now) ParFlow nt
-read(10,*) pfnt
+! read(10,*) pfnt
+
+! read in parflow start and stop times
+read(10,*) pft1
+read(10,*) pft2
+pfnt=pft2-pft1+1
+!print*, pft1, pft2, pfnt
 
 ! set ET DT to ParFlow one and allocate ET arrays accordingly
 ET_dt = pfdt
@@ -399,8 +411,12 @@ ipwrite = 0
 allocate(Time_Next(pfnt))
 
 do kk = 1, pfnt
-        Time_Next(kk) = float(kk)*pfdt
+        Time_Next(kk) = float(kk+pft1-1)*pfdt
+        !print*, Time_Next(kk)
 end do
+
+Time_first = float(pft1-1)*pfdt
+
 
 ! Uncomment the following line if all particles are wanted
 ! to exit the domain -- holds only for steady state case.
@@ -449,6 +465,8 @@ write(11,'("dy:",e12.5)') dy
 write(11,'("dz:",*(e12.5,", "))') dz(1:nz)
 write(11,'("ParFlow delta-T, pfdt:",e12.5)') pfdt
 write(11,'("ParFlow timesteps, pfnt:",i12)') pfnt
+write(11,'("ParFlow start step, pft1:",i12)') pft1
+write(11,'("ParFlow end step, pft2:",i12)') pft2
 !write(11,*) 'Initial Condition Info'
 !write(11,*) 'X low:',Xlow,' X high:',Xhi
 !write(11,*) 'Y low:',Ylow,' Y high:',Yhi
@@ -549,7 +567,9 @@ call pfb_read(Porosity,fname,nx,ny,nz)
 
 ! Read the in initial Saturation from ParFlow
 kk = 0
-write(filenum,'(i5.5)') kk
+pfkk=pft1-1
+!print*, pfkk
+write(filenum,'(i5.5)') pfkk
 fname=trim(adjustl(pname))//'.out.satur.'//trim(adjustl(filenum))//'.pfb'
 call pfb_read(Saturation,fname,nx,ny,nz)
 
@@ -637,7 +657,9 @@ conc_header(4) = 'Comp'
 conc_header(5) = 'Delta'
 
 if(icwrite == 1)  &
-call vtk_write(0.0d0,C,conc_header,nx,ny,nz,kk,n_constituents,Pnts,vtk_file)
+!call vtk_write(0.0d0,C,conc_header,nx,ny,nz,pfkk,n_constituents,Pnts,vtk_file)
+call vtk_write(Time_first,C,conc_header,nx,ny,nz,pfkk,n_constituents,Pnts,vtk_file)
+
 
 !! clear out C arrays
 C = 0.0D0
@@ -656,12 +678,16 @@ C = 0.0D0
 
 
 ! loop over timesteps
+pfkk = pft1 - 1
 do kk = 1, pfnt
 
         call system_clock(T1)
+        !adust the file counters
+        pfkk = pfkk + 1
+        !print*, pfkk
 
         ! Read the velocities computed by ParFlow
-        write(filenum,'(i5.5)') kk
+        write(filenum,'(i5.5)') pfkk
 
         fname=trim(adjustl(pname))//'.out.velx.'//trim(adjustl(filenum))//'.pfb'
         call pfb_read(Vx,fname,nx+1,ny,nz)
@@ -1074,12 +1100,12 @@ conc_header(4) = 'Comp'
 conc_header(5) = 'Delta'
 
 if(icwrite == 1)  &
-call vtk_write(Time_Next(kk),C,conc_header,nx,ny,nz,kk,n_constituents,Pnts,vtk_file)
+call vtk_write(Time_Next(kk),C,conc_header,nx,ny,nz,pfkk,n_constituents,Pnts,vtk_file)
 
 vtk_file=trim(runname)//'_pnts'
 ibinpntswrite = 1
 if(ibinpntswrite == 1)  &
-call vtk_write_points(P,np_active,np,kk,vtk_file)
+call vtk_write_points(P,np_active,np,pfkk,vtk_file)
 
 !! reset C
 C = 0.0D0
@@ -1167,8 +1193,11 @@ end if
 !if (ET_np(ii) > 0 ) then
 !ET_mass(ii,1) = ET_mass(ii,:)   !/(ET_np(ii))
 !end if
-write(13,'(6(e12.5),i12)') float(ii)*ET_dt, ET_age(ii,1), ET_comp(ii,1), &
-                           ET_mass(ii,1), ET_mass(ii,2),ET_mass(ii,3), ET_np(ii)
+!write(13,'(6(e12.5),i12)') float(ii)*ET_dt, ET_age(ii,1), ET_comp(ii,1), &
+!                           ET_mass(ii,1), ET_mass(ii,2),ET_mass(ii,3), ET_np(ii)
+write(13,'(6(e12.5),i12)') float(ii+pft1-1)*ET_dt, ET_age(ii,1), ET_comp(ii,1), &
+                            ET_mass(ii,1), ET_mass(ii,2),ET_mass(ii,3), ET_np(ii)
+
 64  FORMAT(4(e12.5),i12)
 end do
 flush(13)
@@ -1185,7 +1214,8 @@ Out_age(ii,:) = Out_age(ii,:)/(Out_mass(ii,:))
 Out_comp(ii,:) = Out_comp(ii,:)/(Out_mass(ii,:))
 !Out_mass(ii,:) = Out_mass(ii,:)/(Out_mass(ii,:))
 end if
-write(13,64) float(ii)*ET_dt, Out_age(ii,1), Out_comp(ii,1), Out_mass(ii,1), Out_np(ii)
+!write(13,64) float(ii)*ET_dt, Out_age(ii,1), Out_comp(ii,1), Out_mass(ii,1), Out_np(ii)
+write(13,64) float(ii+pft1-1)*ET_dt, Out_age(ii,1), Out_comp(ii,1), Out_mass(ii,1), Out_np(ii)
 
 end do
 flush(13)
@@ -1197,7 +1227,8 @@ close(13)
 open(13,file=trim(runname)//'_PET_balance.txt')
 write(13,*) 'TIME P[kg] ET[kg]'
 do ii = 1, pfnt
-write(13,'(3(e12.5,2x))') float(ii)*ET_dt, PET_balance(ii,1), PET_balance(ii,2)
+!write(13,'(3(e12.5,2x))') float(ii)*ET_dt, PET_balance(ii,1), PET_balance(ii,2)
+write(13,'(3(e12.5,2x))') float(ii+pft1-1)*ET_dt, PET_balance(ii,1), PET_balance(ii,2)
 end do
 flush(13)
 ! close ET file
