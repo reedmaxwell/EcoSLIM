@@ -567,7 +567,7 @@ call pfb_read(Porosity,fname,nx,ny,nz)
 ! Read the in initial Saturation from ParFlow
 kk = 0
 pfkk=pft1-1
-print *, pfkk
+!print*, pfkk
 write(filenum,'(i5.5)') pfkk
 fname=trim(adjustl(pname))//'.out.satur.'//trim(adjustl(filenum))//'.pfb'
 call pfb_read(Saturation,fname,nx,ny,nz)
