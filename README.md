@@ -15,7 +15,7 @@ To build simply type `make` in the main window, to set number of parallel thread
 `export OMP_NUM_THREADS=16` for bash or
 `setenv OMP_NUM_THREADS 16` for t/c-shell.
 
-To run you will need to have a completed ParFlow simulation and a
+To run you will need to have a completed ParFlow simulation and an
 EcoSLIM input file that must be named `slimin.txt` and follow the
 format described below. Note that this file does not need to be co-located
 with the ParFlow simulation.  
@@ -39,7 +39,8 @@ SLIM_hillslope   ! SLIM run name, path to ParFlow files follows
 0.2         !dy, dz follows
 0.1, 0.1, 0.1, 0.1, 0.1
 1.0         ! ParFlow DT
-1752        ! Parflow NT (two years)
+1          ! Parflow t1: ParFlow file number to start from (initial condition is pft1-1)
+1752       ! Parflow t2: ParFlow file number to stop at
 1.0d0       ! velocity multiplier 1.0=forward, -1.0=backward
 True        ! CLM Evap Trans
 10          ! number of particles per Evap Trans IC
