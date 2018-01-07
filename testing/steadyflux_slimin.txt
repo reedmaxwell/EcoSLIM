@@ -1,5 +1,5 @@
 SLIM_flux_test   ! SLIM run name
-"/Users/lauracondon/Documents/ParFlow/EcoSlim_Testing/SteadyState_Test/ParFlow/steadyflx/steadyflx"
+"../steadyflx/steadyflx"
 30    !nx
 1     !ny
 30     !nz

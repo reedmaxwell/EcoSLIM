@@ -370,3 +370,7 @@ pfrun $runname
 pfundist $runname
 
 cd ..
+
+file mkdir SLIM_steadyflx
+cd SLIM_steadyflx
+file copy -force ../steadyflux_slimin.txt slimin.txt
