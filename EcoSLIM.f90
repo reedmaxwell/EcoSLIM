@@ -230,7 +230,7 @@ real*8  ET_dt, DR_Temp
 ! integer counters and operators.
 ! the first set are used for total run timing the latter for component timing
 integer  Total_time1, Total_time2, t1, t2, IO_time_read, IO_time_write, parallel_time
-integer  sort time
+integer  sort_time
 !! integers for writing C or point based output
 integer ipwrite, ibinpntswrite
 
@@ -986,6 +986,10 @@ do kk = 1, pfnt
 
 call system_clock(T1)
 
+
+!! format statements for particel output
+61  FORMAT(4(e12.5))
+62  FORMAT(4(e12.5))
 
 ! write all active particles at concentration in ASCII VisIT 3D file format
 ! as noted above, this option is very slow compared to VTK binary output
