@@ -92,7 +92,7 @@ real*8,allocatable::P(:,:)
         ! P(np,6) = Particle mass; assigned via preciptiation or snowmelt rate (Evap_Trans*density*volume*dT)
         ! P(np,7) = Particle source (1=IC, 2=rain, 3=snowmelt...)
         ! P(np,8) = Particle Status (1=active, 0=inactive)
-        ! P(np,9) = isotopic concentration
+        ! P(np,9) = concentration
 
 !@ RMM, why is this needed?
 real*8,allocatable::PInLoc(:,:)
@@ -300,7 +300,6 @@ sort_time = 0
 !       - #11: runname_log.txt
 !       - #12: runname_particle.3D (visualizes particles in VisIT)
 !       - #13: runname_endparticle.txt
-!       - #14: runname_transient_particle.XXX.3D  (visualizes particles in VisIT, one per timetep)
 
 call system_clock(T1)
 
@@ -322,7 +321,7 @@ write(11,*)
 write(11,*) 'ParFlow run name:',trim(pname)
 write(11,*)
 
-! read domain number of cells and number of partciels to be injected
+! read domain number of cells and number of particles to be injected
 read(10,*) nx
 read(10,*) ny
 read(10,*) nz
@@ -418,7 +417,6 @@ allocate(Time_Next(pfnt))
 
 do kk = 1, pfnt
         Time_Next(kk) = float(kk+pft1-1)*pfdt
-        !print*, Time_Next(kk)
 end do
 
 Time_first = float(pft1-1)*pfdt
@@ -454,10 +452,7 @@ write(11,'("ParFlow delta-T, pfdt:",e12.5)') pfdt
 write(11,'("ParFlow timesteps, pfnt:",i12)') pfnt
 write(11,'("ParFlow start step, pft1:",i12)') pft1
 write(11,'("ParFlow end step, pft2:",i12)') pft2
-!write(11,*) 'Initial Condition Info'
-!write(11,*) 'X low:',Xlow,' X high:',Xhi
-!write(11,*) 'Y low:',Ylow,' Y high:',Yhi
-!write(11,*) 'Z low:',Zlow,' Z high:',Zhi
+
 write(11,*)
 write(11,*) 'V mult: ',V_mult,' for forward/backward particle tracking'
 write(11,*) 'CLM Trans: ',clmtrans,' adds / removes particles based on LSM fluxes'
@@ -485,11 +480,10 @@ do k = 1, nz
         Zmax = Zmax + dz(k)
 end do
 
-!! hard wire DEM
+!! hard wire DEM  @RMM, to do, need to make this input
 do i = 1, nx
   do j = 1, ny
 DEM(i,j) = 0.0D0 + float(i)*dx*0.05
-!print*, DEM(i,j), i, j
 end do
 end do
 
@@ -540,7 +534,6 @@ do k=1,nnz
    ! The specified initial heights in the pfb (z1) are ignored and the
    !  offset is computed based on the model thickness
    Pnts(m,3)=(DEM(ii,jj)-maxZ)+Zt(k-1)
-!   print*, Pnts(m,3), DEM(ii,jj), maxZ, Zt(k-1), ii, jj
    m=m+1
   end do
  end do
@@ -549,7 +542,6 @@ end do
 
 ! Read porosity values from ParFlow .pfb file
 fname=trim(adjustl(pname))//'.out.porosity.pfb'
-!print*, fname
 call pfb_read(Porosity,fname,nx,ny,nz)
 
 ! Read the in initial Saturation from ParFlow
@@ -666,7 +658,7 @@ do kk = 1, pfnt
         call pfb_read(EvapTrans,fname,nx,ny,nz)
         ! check if we read full CLM output file
         if (clmfile) then
-         !Read in CLM output file
+         !Read in CLM output file @RMM to do make this input
         fname=trim(adjustl(pname))//'.out.clm_output.'//trim(adjustl(filenum))//'.C.pfb'
         call pfb_read(CLMvars,fname,nx,ny,nzclm)
         end if
