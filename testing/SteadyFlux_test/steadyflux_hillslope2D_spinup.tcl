@@ -8,9 +8,9 @@ set tcl_precision 17
 #flux rate in m/hr that will be applied for both ET and precip
 set fluxrate 0.00125
 
-set runname flux$fluxrate
-#file mkdir $runname
-#cd $runname
+set runname spinup$fluxrate
+file mkdir $runname
+cd $runname
 #
 # Import the ParFlow TCL package
 #
@@ -136,10 +136,16 @@ pfset Gravity				1.0
 pfset TimingInfo.BaseUnit        0.1
 pfset TimingInfo.StartCount      0
 pfset TimingInfo.StartTime       0.0
-pfset TimingInfo.StopTime        20000
-pfset TimingInfo.DumpInterval    -1
-pfset TimeStep.Type              Constant
-pfset TimeStep.Value             1.0
+pfset TimingInfo.StopTime        200000
+pfset TimingInfo.DumpInterval    10000.0
+#pfset TimeStep.Type              Constant
+#pfset TimeStep.Value             100.0
+
+pfset TimeStep.Type              Growth
+pfset TimeStep.InitialStep    0.1
+pfset TimeStep.GrowthFactor      1.1
+pfset TimeStep.MaxStep      100000000
+pfset TimeStep.MinStep      0.01
 
 #-----------------------------------------------------------------------------
 # Porosity
@@ -237,7 +243,7 @@ for { set jj 0 } { $jj < 1 } { incr jj } {
 for { set ii 0 } { $ii < 30 } { incr ii } {
 
 	# applying ET at the surface on the left 1/3 of the domain
-	if {$ii <= 10} {
+	if {$ii <= 9} {
 
       if {$kk == 29} {
           # convert from m / h of et to flux 1/t units by dividing by dz
@@ -370,11 +376,11 @@ pfset Geom.domain.ICPressure.RefPatch                   z-upper
 #-----------------------------------------------------------------------------
 
 
-#pfrun $runname
-#pfundist $runname
+pfrun $runname
+pfundist $runname
 
-#cd ..
+cd ..
 
-file mkdir SLIM_flux$fluxrate
-cd SLIM_flux$fluxrate
-file copy -force ../steadyflux_slimin_temp.txt slimin.txt
+#file mkdir SLIM_flux$fluxrate
+#cd SLIM_flux$fluxrate
+#file copy -force ../steadyflux_slimin_temp.txt slimin.txt
