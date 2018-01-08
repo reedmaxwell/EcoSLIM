@@ -806,7 +806,8 @@ do kk = 1, pfnt
                 !Z = Z + dz(k)
                 !end do
                 if ( (P(ii,3) >= Zmax-(dz(nz)*0.5d0)).and.   &
-                (Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)  == 1.0) ) then
+                (Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)  == 1.0).and.  &
+                 (Vz(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) > 0.0) ) then
                 itime_loc = kk
                 if (itime_loc <= 0) itime_loc = 1
                 if (itime_loc >= pfnt) itime_loc = pfnt
