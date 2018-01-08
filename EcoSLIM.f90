@@ -1097,7 +1097,7 @@ close(13)
 open(13,file=trim(runname)//'_ET_output.txt')
 write(13,*) 'TIME ET_age ET_comp ET_mass1 ET_mass2 ET_mass3 ET_Np'
 do ii = 1, pfnt
-if (ET_mass(ii,1) > 0 ) then
+if (ET_mass(ii,2) > 0 ) then
 ET_age(ii,1) = ET_age(ii,1)/(ET_mass(ii,2))
 ET_comp(ii,1) = ET_comp(ii,1)/(ET_mass(ii,2))
 end if
