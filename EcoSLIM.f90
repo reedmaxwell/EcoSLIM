@@ -1010,6 +1010,7 @@ where (C(3,:,:,:)>0.0)  C(4,:,:,:) = C(4,:,:,:) / C(3,:,:,:)
 where (C(3,:,:,:)>0.0)  C(5,:,:,:) = C(5,:,:,:) / C(3,:,:,:)
 
 ! write grid based values ("concentrations")
+vtk_file=trim(runname)//'_cgrid'
 if(icwrite == 1)  &
 call vtk_write(Time_Next(kk),C,conc_header,nx,ny,nz,pfkk,n_constituents,Pnts,vtk_file)
 print*,icwrite, kk, Time_Next(kk), conc_header,nx,ny,nz,pfkk,n_constituents,vtk_file
