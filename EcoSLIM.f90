@@ -139,7 +139,7 @@ integer np_ic, np, np_active, np_active2, icwrite, jj, npnts, ncell
         ! number of particles for intial pulse IC, total, and running active
 
 integer nt, n_constituents
-        ! number of timesteps ParFlow
+        ! number of timesteps ParFlow; numer of C vectors written for VTK output
 
 real*8  pfdt, advdt(3)
         ! ParFlow timestep value, advection timestep for each direction
@@ -226,9 +226,28 @@ real*8, allocatable::Out_age(:,:), Out_mass(:,:), Out_comp(:,:)
 integer, allocatable:: ET_np(:), Out_np(:)
 
 real*8  ET_dt, DR_Temp
-        ! time interval for ET
-integer  Total_time1, Total_time2, t1, t2, IO_time_read, IO_time_write, parallel_time, ipwrite
-integer ibinpntswrite, sort_time
+! time interval for ET
+! integer counters and operators.
+! the first set are used for total run timing the latter for component timing
+integer  Total_time1, Total_time2, t1, t2, IO_time_read, IO_time_write, parallel_time
+integer  sort time
+!! integers for writing C or point based output
+integer ipwrite, ibinpntswrite
+
+!! IO control
+!! ipwrite controls an ASCII, .3D particle file not recommended due to poor performance
+!! this is left as a compiler option, currently disabled
+!!!!!!!
+!! icwrite controls VTK, binary grid based output where particle masses, concentrations,
+!! ages are mapped to a grid and written every N timesteps.  This is the most effiecient output
+!! but loses some accuracy or flexbility becuase individual particle locations are aggregated
+!! to the grid
+!!!!!!!!
+!! ibinpntswrite controls VTK, binary output of particle locations and attributes.  This is much faster
+!! than the .3D ASCII output but is still much slower than grid based output.  It provides the most
+!! information as particle locations are preserved
+
+
 
 interface
   SUBROUTINE vtk_write(time,x,conc_header,ixlim,iylim,izlim,icycle,n_constituents,Pnts,vtk_file)
@@ -302,18 +321,6 @@ write(11,*) 'run name:',trim(runname)
 write(11,*)
 write(11,*) 'ParFlow run name:',trim(pname)
 write(11,*)
-
-! open/create/write the 3D output file
-!open(12,file=trim(runname)//'_particle.3D')
-!write(12,*) 'X Y Z TIME'
-
-! open/create/write ET particle output file
-!open(21,file=trim(runname)//'_ET_particle.txt')
-!write(21,*) 'TIME X Y Z Age Flux Source'
-
-! open/create/write Outflow particle output file
-!open(22,file=trim(runname)//'_Outflow_particle.txt')
-!write(22,*) 'TIME X Y Z Age Flux Source'
 
 ! read domain number of cells and number of partciels to be injected
 read(10,*) nx
@@ -401,7 +408,10 @@ Out_age = 0.0d0
 Out_mass = 0.0d0
 Out_comp = 0.0d0
 Out_np = 0
+
+!! IO control
 ipwrite = 0
+ibinpntswrite = 1
 
 ! allocate and assign timesteps
 allocate(Time_Next(pfnt))
@@ -575,27 +585,9 @@ do k = 1, nz
 
   P(ii,3) = Z -dz(k)*ran1(ir)
   PInLoc(ii,3) = P(ii,3)
-!  print*, i, j, k, P(ii,1), P(ii,2), Z,dz(k), P(ii,3)
 
-!        P(ii,1) = Xlow+ran1(ir)*(Xhi-Xlow)
-!        PInLoc(ii,1) = P(ii,1)
-!        P(ii,2) = Ylow+ran1(ir)*(Yhi-Ylow)
-!        PInLoc(ii,2) = P(ii,2)
-!        P(ii,3) = Zlow+ran1(ir)*(Zhi-Zlow)
-!        PInLoc(ii,3) = P(ii,3)
-!        P(ii,4) = 0.0D0
-!        ! Find the "adjacent" cell corresponding to the particle's location
-!        Ploc(1) = floor(P(ii,1) / dx)
-!        Ploc(2) = floor(P(ii,2) / dy)
-!        Z = 0.0d0
-!        do k = 1, nz
-!                Z = Z + dz(k)
-!                if (Z >= P(ii,3)) then
-!                        Ploc(3) = k - 1
-!                        exit
-!                end if
-!        end do
-        ! assign mass of particle by the
+        ! assign mass of particle by the volume of the cells
+        ! and the water contained in that cell
         P(ii,6) = dx*dy*dz(k)*(Porosity(i,j,k)  &
                  *Saturation(i,j,k))*denh2o*(1.0d0/float(np_ic))
         P(ii,7) = 1.0d0
@@ -624,9 +616,9 @@ flush(11)
 where (C(3,:,:,:)>0.0)  C(2,:,:,:) = C(2,:,:,:) / C(3,:,:,:)
 where (C(3,:,:,:)>0.0)  C(4,:,:,:) = C(4,:,:,:) / C(3,:,:,:)
 
-  n_constituents = 5
-  icwrite = 1
-  vtk_file=trim(runname)//'_cgrid'
+!! Set up output options for VTK grid output
+icwrite = 1
+vtk_file=trim(runname)//'_cgrid'
 conc_header(1) = 'Concentration'
 conc_header(2) = 'Age'
 conc_header(3) = 'Mass'
@@ -634,26 +626,16 @@ conc_header(4) = 'Comp'
 conc_header(5) = 'Delta'
 
 if(icwrite == 1)  &
-!call vtk_write(0.0d0,C,conc_header,nx,ny,nz,pfkk,n_constituents,Pnts,vtk_file)
 call vtk_write(Time_first,C,conc_header,nx,ny,nz,pfkk,n_constituents,Pnts,vtk_file)
-
 
 !! clear out C arrays
 C = 0.0D0
-
-!np_active = np_ic
-
-
-!flush(11)
-
 
 
 !--------------------------------------------------------------------
 ! (3) For each timestep, loop over all particles to find and
 !     update their new locations
 !--------------------------------------------------------------------
-
-
 ! loop over timesteps
 pfkk = pft1 - 1
 do kk = 1, pfnt
@@ -720,7 +702,6 @@ do kk = 1, pfnt
         ! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass of water input
         PET_balance(kk,1) = PET_balance(kk,1) &
                             + pfdt*EvapTrans(i,j,k)*dx*dy*dz(k)*denh2o
-!        if (Saturation(i,j,k)< 1.0d0)  then
         do ji = 1, iflux_p_res
         if (np_active < np) then   ! check if we have particles left
         np_active = np_active + 1
@@ -753,14 +734,14 @@ do kk = 1, pfnt
         P(ii,7) = 2.d0 ! Rainfall composition
         end if
         P(ii,9) = 1.0d0
-        !print*, i,j,k,P(ii,1:6),ii,np_active
+
         else
         write(11,*) ' **Warning rainfall input but no paricles left'
         write(11,*) ' **Exiting code gracefully writing restart '
         goto 9090
         end if  !! do we have particles left?
         end do !! for flux particle resolution
-!        end if  !! end for Sat < 1
+
         else !! ET not P
         ! sum water inputs in PET 1 = P, 2 = ET, kk= PF timestep
         ! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass of water input
@@ -913,26 +894,23 @@ do kk = 1, pfnt
                         *Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))
                         !  add that amout of mass to ET BT; check if particle is out of mass
                         itime_loc = kk
-!                        print*, itime_loc, P(ii,4), ET_dt
+                        ! extra checking for array bounds to provide future flexibilty
+                        ! if DT for output != PFDT
                         if (itime_loc <= 0) itime_loc = 1
                         if (itime_loc >= pfnt) itime_loc = pfnt
-
                         Zr = ran1(ir)
                         if (Zr < ((et_flux*particledt)/water_vol)) then   ! check if particle is 'captured' by the roots
                         !  this section made atomic since it could inovlve a data race
+                        !  that is, each thread can only update the ET arrays one at a time
                         !$OMP ATOMIC
-                        ET_age(itime_loc,1) = ET_age(itime_loc,1) + P(ii,4)*P(ii,6)
+                        ET_age(itime_loc,1) = ET_age(itime_loc,1) + P(ii,4)*P(ii,6)  ! mass weighted age
                         !$OMP ATOMIC
-                        ET_mass(itime_loc,2) = ET_mass(itime_loc,2)  +  P(ii,6)
-!                        !$OMP ATOMIC
-!                        ET_mass(itime_loc,1) = ET_mass(itime_loc,1)  + et_flux*particledt*denh2o
-!!                        !$OMP ATOMIC
-!                        ET_mass(itime_loc,3) = ET_mass(itime_loc,3)  + P(ii,6)
+                        ET_mass(itime_loc,2) = ET_mass(itime_loc,2)  +  P(ii,6)  ! particle mass added to ET
                         !$OMP ATOMIC
-                        ET_comp(itime_loc,1) = ET_comp(itime_loc,1) + P(ii,7)*P(ii,6)
+                        ET_comp(itime_loc,1) = ET_comp(itime_loc,1) + P(ii,7)*P(ii,6)  !mass weighted contribution
                         !$OMP ATOMIC
-                        ET_np(itime_loc) = ET_np(itime_loc) + 1
-                        !  remove particle from domain
+                        ET_np(itime_loc) = ET_np(itime_loc) + 1   ! track number of particles
+                        !  now remove particle from domain
                             P(ii,8) = 0.0d0
                             goto 999
                         end if
@@ -961,7 +939,7 @@ do kk = 1, pfnt
 !!
                         ! place to track saturated / groundwater time if needed
                         if(Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) == 1.0) P(ii,5) = P(ii,5) + particledt
-                        ! simple reflection
+                        ! simple reflection boundary
                         if (P(ii,3) >=Zmax) P(ii,3) = Zmax- (P(ii,3) - Zmax)
                         if (P(ii,1) >=Xmax) P(ii,1) = Xmax- (P(ii,1) - Xmax)
                         if (P(ii,2) >=Ymax) P(ii,2) = Ymax- (P(ii,2) - Ymax)
@@ -998,9 +976,6 @@ do kk = 1, pfnt
                                 !$OMP Atomic
                                 C(5,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) = C(5,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) + P(ii,8)*P(ii,9)*P(ii,6)
         end if   !! end-if; check if particle is active
-        ! format statements lying around, should redo the way this is done
-        61  FORMAT(4(e12.5))
-        62  FORMAT(4(e12.5))
         end do !  ii,  end particle loop
         !$OMP END DO NOWAIT
         !$OMP FLUSH
@@ -1011,13 +986,13 @@ do kk = 1, pfnt
 
 call system_clock(T1)
 
-!ipwrite = 1
-! write all active particles at concentration
+
+! write all active particles at concentration in ASCII VisIT 3D file format
+! as noted above, this option is very slow compared to VTK binary output
 if(ipwrite == 1) then
 ! open/create/write the 3D output file
 open(14,file=trim(runname)//'_transient_particle.'//trim(adjustl(filenum))//'.3D')
 write(14,*) 'X Y Z TIME'
-!flush(14)
 do ii = 1, np_active
 if (P(ii,8) == 1) write(14,61) P(ii,1), P(ii,2), P(ii,3), P(ii,4)
 end do
@@ -1029,20 +1004,12 @@ where (C(3,:,:,:)>0.0)  C(2,:,:,:) = C(2,:,:,:) / C(3,:,:,:)
 where (C(3,:,:,:)>0.0)  C(4,:,:,:) = C(4,:,:,:) / C(3,:,:,:)
 where (C(3,:,:,:)>0.0)  C(5,:,:,:) = C(5,:,:,:) / C(3,:,:,:)
 
-  n_constituents = 5
-  icwrite = 1
-  vtk_file=trim(runname)//'_cgrid'
-conc_header(1) = 'Concentration'
-conc_header(2) = 'Age'
-conc_header(3) = 'Mass'
-conc_header(4) = 'Comp'
-conc_header(5) = 'Delta'
-
+! write grid based values ("concentrations")
 if(icwrite == 1)  &
 call vtk_write(Time_Next(kk),C,conc_header,nx,ny,nz,pfkk,n_constituents,Pnts,vtk_file)
 
+! write binary particle locations and attributes
 vtk_file=trim(runname)//'_pnts'
-ibinpntswrite = 1
 if(ibinpntswrite == 1)  &
 call vtk_write_points(P,np_active,np,pfkk,vtk_file)
 
