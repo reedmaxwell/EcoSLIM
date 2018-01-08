@@ -332,7 +332,7 @@ pfset OverlandFlowDiffusive  0
 
 
 pfset Solver.Nonlinear.MaxIter                           20
-pfset Solver.Nonlinear.ResidualTol                       1e-9
+pfset Solver.Nonlinear.ResidualTol                       1e-7
 pfset Solver.Nonlinear.EtaChoice                         EtaConstant
 pfset Solver.Nonlinear.EtaValue                          0.01
 pfset Solver.Nonlinear.UseJacobian                       False
@@ -348,7 +348,7 @@ pfset Solver.Linear.Preconditioner                       PFMG
 pfset Solver.Linear.Preconditioner.PCMatrixType     FullJacobian
 pfset Solver.PrintSubsurf				False
 pfset  Solver.Drop                                      1E-20
-pfset Solver.AbsTol                                     1E-9
+pfset Solver.AbsTol                                     1E-7
 
 pfset Solver.WriteSiloSubsurfData True
 pfset Solver.WriteSiloPressure True
@@ -369,7 +369,7 @@ pfset Solver.PrintEvapTrans                         True
 #---------------------------------------------------------
 
 # set water table to be at the bottom of the domain, the top layer is initially dry
-file copy -force ../spinup$fluxrate/$ic_file "./ICPress.Spinup.pfb" 
+file copy -force ../spinup$fluxrate/$ic_file "./ICPress.Spinup.pfb"
 
 #pfset ICPressure.Type                                   HydroStaticPatch
 #pfset ICPressure.GeomNames                              domain
