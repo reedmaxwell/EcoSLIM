@@ -725,8 +725,10 @@ do kk = 1, pfnt
         P(ii,4) = 0.0d0 +ran1(ir)*pfdt
         P(ii,5) = 0.0d0
         ! mass of water flux into the cell divided up among the particles assigned to that cell
+        !P(ii,6) = (1.0d0/float(iflux_p_res))   &
+          !        *P(ii,4)*EvapTrans(i,j,k)*dx*dy*dz(k)*denh2o  !! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass
         P(ii,6) = (1.0d0/float(iflux_p_res))   &
-                  *P(ii,4)*EvapTrans(i,j,k)*dx*dy*dz(k)*denh2o  !! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass
+                    *pfdt*EvapTrans(i,j,k)*dx*dy*dz(k)*denh2o  !! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass
         !! check if input is rain or snowmelt
         if(CLMvars(i,j,11) > 0.0) then !this is snowmelt
         P(ii,7) = 3.0d0 ! Snow composition
