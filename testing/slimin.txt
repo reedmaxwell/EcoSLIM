@@ -1,6 +1,7 @@
 SLIM_hillslope   ! SLIM run name
 "/Users/reed/Projects/EcoSLIM/hillslope_clm/hillslope_clm"
-20    !nx
+ER_DEM   ! DEM file name
+20    !nx
 5     !ny
 50    !nz
 20    !Particles per cell at start of simulation
