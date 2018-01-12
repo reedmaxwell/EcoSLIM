@@ -105,20 +105,18 @@
 ! CODE STRUCTURE
 !--------------------------------------------------------------------
 ! (1) Define variables
-!
-! (2) Read inputs, set up domain, write the log file, and
-!     initialize particles,
-!
-! (3) For each timestep, loop over all particles to find and
+! (2) Define subroutines
+! (3) Read inputs, set up domain, write the log file, and initialize particles
+! (4) For each timestep, loop over all particles to find and
 !     update their new locations
 !--------------------------------------------------------------------
-
 
 program EcoSLIM
 use ran_mod
 implicit none
+
 !--------------------------------------------------------------------
-! (1) Define variables
+! (1) Define parameters/variables/indices
 !--------------------------------------------------------------------
 
 real*8,allocatable::P(:,:)
@@ -184,7 +182,8 @@ real*8,allocatable::CLMvars(:,:,:)
         ! CLM output as specified in the manual)
 
 real*8, allocatable::Pnts(:,:), DEM(:,:) 
-        ! DEM and grid points for concentration output
+        ! Pnts: grid points for concentration output
+        ! DEM: Digital Elevation Model for concentration output
 
 integer Ploc(3)
         ! The cell number adjacent to the particle's location
@@ -367,14 +366,19 @@ real*8  DR_Temp
 real*8 Zr, z1, z2, z3
         ! random variables
 
+!--------------------------------------------------------------------
+! (2) Define subroutines
+!--------------------------------------------------------------------
+
 interface
-  SUBROUTINE vtk_write(time,x,conc_header,ixlim,iylim,izlim,icycle,n_constituents,Pnts,vtk_file)
+
+SUBROUTINE vtk_write(time,x,conc_header,ixlim,iylim,izlim,icycle,n_constituents,Pnts,vtk_file)
   real*8                 :: time
-  REAL*8    :: x(:,:,:,:)
+  REAL*8                 :: x(:,:,:,:)
   CHARACTER (LEN=20)     :: conc_header(:)
-  INTEGER*4 :: ixlim
-  INTEGER*4 :: iylim
-  INTEGER*4 :: izlim
+  INTEGER*4              :: ixlim
+  INTEGER*4              :: iylim
+  INTEGER*4              :: izlim
   REAL*8                 :: dx
   REAL*8                 :: dy
   REAL*8                 :: dz(izlim)
@@ -385,7 +389,7 @@ interface
 end subroutine vtk_write
 
 SUBROUTINE vtk_write_points(P,np_active, np,icycle,vtk_file)
-REAL*8    :: P(:,:)
+REAL*8                 :: P(:,:)
 INTEGER                :: icycle
 INTEGER*4              :: np_active
 INTEGER*4              :: np
@@ -395,7 +399,11 @@ end subroutine vtk_write_points
 
 end interface
 
-!Set up timing
+!------------------------------------------------------------------------------
+! (3) Read inputs, set up domain, write the log file, and initialize particles
+!------------------------------------------------------------------------------
+
+! Set up timing
 Total_time1 = 0
 Total_time2 = 0
 t1 = 0
@@ -405,19 +413,7 @@ IO_time_write = 0
 parallel_time = 0
 sort_time = 0
 
-        call system_clock(Total_time1)
-
-!--------------------------------------------------------------------
-! (2) Read inputs, set up domain, write the log file, and
-! initialize particles
-!--------------------------------------------------------------------
-
-! Note: The following file numbers refer to
-!
-!       - #10: slimin.txt
-!       - #11: runname_log.txt
-!       - #12: runname_particle.3D (visualizes particles in VisIT)
-!       - #13: runname_endparticle.txt
+call system_clock(Total_time1)
 
 call system_clock(T1)
 
@@ -447,8 +443,8 @@ read(10,*) np_ic
 read(10,*) np
 
 if (np_ic > np) then
-write(11,*) ' warning NP_IC greater than IC'
-np = np_ic
+        write(11,*) ' warning NP_IC greater than IC'
+        np = np_ic
 end if
 
 ! write nx, ny, nz, and np in the log file
@@ -464,21 +460,21 @@ allocate(P(np,10))
 P(1:np,1:6) = 0    ! clear out all particle attributes
 P(1:np,7:9) = 1.0  ! make all particles active to start with and original from 1 = GW/IC
 
-! grid +1 variables
-nnx=nx+1
-nny=ny+1
-nnz=nz+1
+! grid+1 variables
+nnx = nx + 1
+nny = ny + 1
+nnz = nz + 1
 
-nCLMsoil = 10 ! number of CLM soil layers over the root zone
-nzclm = 13+nCLMsoil ! CLM output is 13+nCLMsoil layers for different variables not domain NZ,
-           !  e.g. 23 for 10 soil layers (default) and 17 for 4 soil layers (Noah soil
-           ! layer setup)
+nCLMsoil = 10         ! number of CLM soil layers over the root zone
+nzclm = 13 + nCLMsoil ! CLM output is 13+nCLMsoil layers for different variables not domain NZ,
+                      !  e.g. 23 for 10 soil layers (default) and 17 for 4 soil layers (Noah soil
+                      ! layer setup)
 
-!  number of constituents written to C array
+! number of constituents written to C array
 read(10,*) n_constituents
-write(11,*) 'n_constituents:',n_constituents
+write(11,*) 'n_constituents:', n_constituents
 
-!allocate arrays
+! allocate arrays
 allocate(PInLoc(np,3))
 allocate(Sx(nx,ny),Sy(nx,ny), DEM(nx,ny))
 allocate(dz(nz), Zt(0:nz))
@@ -487,7 +483,8 @@ allocate(Saturation(nx,ny,nz), Porosity(nx,ny,nz),EvapTrans(nx,ny,nz))
 allocate(CLMvars(nx,ny,nzclm))
 allocate(C(n_constituents,nx,ny,nz))
 allocate(conc_header(n_constituents))
-!Intialize everything to Zero
+
+! Intialize everything to Zero
 Vx = 0.0d0
 Vy = 0.0d0
 Vz = 0.0d0
@@ -510,7 +507,7 @@ read(10,*) pfdt
 ! read in parflow start and stop times
 read(10,*) pft1
 read(10,*) pft2
-pfnt=pft2-pft1+1
+pfnt = pft2 - pft1 + 1
 
 ! set ET DT to ParFlow one and allocate ET arrays accordingly
 ET_dt = pfdt
@@ -528,7 +525,8 @@ Out_mass = 0.0d0
 Out_comp = 0.0d0
 Out_np = 0
 
-!! IO control
+!@ MDY (01-12-2018): should we keep these here and move them to slimin.txt? 
+! IO control
 ipwrite = 0
 ibinpntswrite = 1
 
@@ -560,13 +558,13 @@ read(10,*) denh2o
 !moldiff = (1.15e-9)*3600.d0
 read(10,*) moldiff
 
-!saving Efract for a later time
+! saving Efract for a later time
 !read(10,*) Efract
 
 ! fraction of dx/Vx
 read(10,*) dtfrac
 
-!wite out log file
+! wite out log file
 write(11,'("dx:",e12.5)') dx
 write(11,'("dy:",e12.5)') dy
 write(11,'("dz:",*(e12.5,", "))') dz(1:nz)
@@ -591,24 +589,25 @@ call system_clock(T2)
 
 IO_time_read = IO_time_read + (T2-T1)
 
-!! set up domain boundaries
+! set up domain boundaries
 Xmin = 0.0d0
 Ymin = 0.0d0
 Zmin = 0.0d0
-Xmax = float(nx)*dx
-Ymax = float(ny)*dy
+Xmax = float(nx) * dx
+Ymax = float(ny) * dy
 Zmax = 0.0d0
 do k = 1, nz
         Zmax = Zmax + dz(k)
 end do
 
 !! hard wire DEM  @RMM, to do, need to make this input
+! Reply by @MDY (01-12-2018): what about this?
+! 
 do i = 1, nx
   do j = 1, ny
-DEM(i,j) = 0.0D0 + float(i)*dx*0.05
+     DEM(i,j) = 0.0D0 + float(i)*dx*0.05
+  end do
 end do
-end do
-
 
 write(11,*)
 write(11,*) '## Domain Info'
@@ -747,7 +746,7 @@ C = 0.0D0
 
 
 !--------------------------------------------------------------------
-! (3) For each timestep, loop over all particles to find and
+! (4) For each timestep, loop over all particles to find and
 !     update their new locations
 !--------------------------------------------------------------------
 ! loop over timesteps
