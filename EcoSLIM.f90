@@ -250,11 +250,12 @@ integer itime_loc
 integer*4 ir
         ! The input argument for ran1.f90
 
-character*200 runname, filenum, pname, fname, vtk_file
+character*200 runname, filenum, pname, fname, DEMname, vtk_file
         ! runname = SLIM runname
         ! filenum = ParFlow file number
         ! pname = ParFlow output runname
         ! fname = Full name of a ParFlow's output
+        ! DEMname = DEM file name
         ! vtk_file = Concentration file name
 
 real*8 Clocx, Clocy, Clocz
@@ -425,6 +426,9 @@ read(10,*) runname
 
 ! read ParFlow run name
 read(10,*) pname
+
+! read DEM file name
+read(10,*) DEMname
 
 ! open/create/write the output log.txt file. If doesn't exist, it's created.
 open(11,file=trim(runname)//'_log.txt')
@@ -602,7 +606,8 @@ end do
 
 !! hard wire DEM  @RMM, to do, need to make this input
 ! Reply by @MDY (01-12-2018): what about this?
-! 
+! fname = trim(adjustl(pname))//trim(adjustl(DEMname))//'.pfb'
+! call pfb_read(DEM,fname,nx,ny,nz)
 do i = 1, nx
   do j = 1, ny
      DEM(i,j) = 0.0D0 + float(i)*dx*0.05
