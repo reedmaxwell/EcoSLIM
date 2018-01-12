@@ -12,9 +12,10 @@ SLIM_hillslope   ! SLIM run name
 1.0   ! ParFlow DT
 1        ! Parflow t1
 1752       ! Parflow t2
-1.0d0       ! velocity multiplier 1.0=forward, -1.0=backward
-True           ! CLM Evap Trans
-10           ! number of particles per Evap Trans IC
+1.0d0        ! velocity multiplier 1.0=forward, -1.0=backward
+True         ! CLM Evap Trans
+False        ! CLM file
+10           ! number of particles per Evap Trans IC
 1000.0       ! density H2O
 0.00000414   ! Molecular Diffusivity
 0.5d0        ! fraction of Dx/Vx for numerical stability
