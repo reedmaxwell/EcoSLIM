@@ -30,7 +30,7 @@
 !             * ParFLow grid cell size in the y-direction
 !             * ParFLow grid cell size in the z-direction
 !             * Number of particles per cell at start of simulation
-!             * Total numner of particles to be tracked
+!             * Total number of particles to be tracked
 !             * ParFlow timestep
 !             * ParFlow file number to start from
 !             * ParFlow file number to stop at
@@ -40,7 +40,8 @@
 !             * Density of water  
 !             * A logical parameter detrmining whether CLM Evap Trans is on or off
 !             * Molecular Diffusivity
-!             * Fraction of Dx/Vx (also Dy/Vy and Sz/Vz) for numerical stability  
+!             * Fraction of Dx/Vx (also Dy/Vy and Sz/Vz) for numerical stability
+!             * Number of concetration constituents
 !
 !--------------------------------------------------------------------
 ! SUBROUTINES
@@ -123,17 +124,20 @@ implicit none
 real*8,allocatable::P(:,:)
         ! P = Particle array [np,attributes]
         ! np = Number of particles
-        ! P(np,1) = X coordinate [L]
-        ! P(np,2) = Y coordinate [L]
-        ! P(np,3) = Z coordinate [L]
-        ! P(np,4) = Particle residence time [T]
-        ! P(np,5) = Saturated particle residence time [T]
+        ! P(np,1) = X coordinate
+        ! P(np,2) = Y coordinate
+        ! P(np,3) = Z coordinate
+        ! P(np,4) = Particle residence time
+        ! P(np,5) = Particle residence time in saturated grid cells
         ! P(np,6) = Particle mass; assigned via preciptiation or snowmelt rate (Evap_Trans*density*volume*dT)
-        ! P(np,7) = Particle source (1=IC, 2=rain, 3=snowmelt...)
-        ! P(np,8) = Particle Status (1=active, 0=inactive)
-        ! P(np,9) = concentration
+        ! P(np,7) = Particle source (1=IC, 2=rain, 3=snowmelt, ...)
+        ! P(np,8) = Particle status (1=active, 0=inactive)
+        ! P(np,9) = Concentration
 
 !@ RMM, why is this needed?
+! Reply by MDY (01-12-2018): For the HP paper, I needed to know the initial location
+! of the particles for some specific purposes. We can delete this 
+! array without influencing the core of the code.
 real*8,allocatable::PInLoc(:,:)
         ! PInLoc(np,1) = Particle initial X location
         ! PInLoc(np,2) = Particle initial Y location
@@ -142,13 +146,13 @@ real*8,allocatable::PInLoc(:,:)
 real*8,allocatable::Vx(:,:,:)
 real*8,allocatable::Vy(:,:,:)
 real*8,allocatable::Vz(:,:,:)
-        ! Vx = Velocity x-direction [nx+1,ny,nz] -- ParFlow output
-        ! Vy = Velocity y-direction [nx,ny+1,nz] -- ParFlow output
-        ! Vz = Velocity z-direction [nx,ny,nz+1] -- ParFlow output
+        ! Vx = Velocity array in the x-direction [nx+1,ny,nz] -- ParFlow output
+        ! Vy = Velocity array in the y-direction [nx,ny+1,nz] -- ParFlow output
+        ! Vz = Velocity array in the z-direction [nx,ny,nz+1] -- ParFlow output
 
 real*8,allocatable::C(:,:,:,:)
-        ! Concentration array, in i,j,k with l (first index) as consituent or
-        ! property.  These are set by user at runtime using input
+        ! Concentration array, in i,j,k with l (first index) as constituent or
+        ! property.
 CHARACTER*20,allocatable:: conc_header(:)
         ! name for variables written in the C array above.  Dimensioned as l above.
 real*8,allocatable::Time_Next(:)
