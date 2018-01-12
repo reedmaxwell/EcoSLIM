@@ -2,7 +2,7 @@
 ! EcoSLIM is a Lagrangian, particle-tracking model for simulating
 ! subsurface and surface transport of reactive (such as
 ! microbial agents and metals) and non-reactive contaminants,
-! diagnosing travel times, paths etc., which integrates
+! diagnosing travel times, pathways etc., which integrates
 ! seamlessly with ParFlow.
 !
 ! Developed by: Reed Maxwell-August 2016 (rmaxwell@mines.edu)
