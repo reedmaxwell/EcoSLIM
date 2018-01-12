@@ -196,12 +196,11 @@ integer nnx, nny, nnz
         ! Number of cells in domain plus 1 in x, y, and z directions
         ! e.g., nnx = nx + 1
 
-integer np_ic, np, np_active, np_active2, icwrite, npnts, ncell
+integer np_ic, np, np_active, np_active2, npnts, ncell
         ! np_ic: number of particles for intial pulse IC, total, and running active
         ! np:  total number of particles
         ! np_active: total number of active particles
         ! np_active2: a variable to sort particles to move inactive ones to the end and active ones up
-        ! icwrite: a logical parameter controlling vtk_write.f90 (1 = write .vtk outputs)
         ! npnts: = nnx*nny*nnz
         ! ncell: total number of cells in domain
         
@@ -279,7 +278,7 @@ logical clmfile
         ! Governs reading of the full CLM output, not just evaptrans
 
 real*8 dtfrac
-        ! fraction of dx/Vx (as well as dy/Vy and dz/Vz) assuring
+        ! Fraction of dx/Vx (as well as dy/Vy and dz/Vz) assuring
         ! numerical stability while advecting a particle to a new
         ! location.
 
@@ -293,57 +292,80 @@ real*8 dx, dy
 real*8 Vpx, Vpy, Vpz
         ! Particle velocity in x, y, and z directions
 
-real*8 particledt, delta_time
+real*8 particledt
         ! The time it takes for a particle to displace from
-        ! one location to another and the local particle from-to time
-        ! for each PF timestep
+        ! one location to another
 
-real*8 local_flux, et_flux, water_vol, Zr, z1, z2, z3
-        ! The local cell flux convergence
-        ! The volumetric ET flux
-        ! The availble water volume in a cell
-        ! random variable
+real*8 delta_time
+        ! The local particle from-to time for each ParFlow timestep
+
+real*8 local_flux, et_flux, water_vol
+        ! local_flux: The local cell flux convergence
+        ! et_flux: The volumetric ET flux
+        ! water_vol: The availble water volume in a cell
 
 real*8 Xlow, Xhi, Ylow, Yhi, Zlow, Zhi
-        ! Particles initial locations i.e., where they are injected
-        ! into the domain.
+        ! Define the lowest and highest bounds within which particles
+        ! enter the domain
 
-! density of water (M/L3), molecular diffusion (L2/T), fractionation
-real*8 denh2o, moldiff, Efract  !, ran1
+real*8 denh2o
+        ! Density of water (M/L^3)
 
-! time history of ET, time (1,:) and mass for rain (2,:), snow (3,:),
-! PET balance is water balance flux from PF accumulated over the domain at each
-! timestep
+real*8 moldiff
+        ! Molecular diffusion (L^2/T)
+
+real*8 Efract
+        ! Evaporation fractionation
+
 real*8, allocatable::ET_age(:,:), ET_mass(:,:), ET_comp(:,:), PET_balance(:,:)
+        ! Define time history of particles leaving domain as ET.
+        ! ET_age: mass weighted age
+        ! ET_mass: accumulated particle mass 
+        ! ET_comp: mass weighted contribution
+        ! PET_balance: water balance flux from ParFlow accumulated over the domain at each timestep
+
 real*8, allocatable::Out_age(:,:), Out_mass(:,:), Out_comp(:,:)
+        ! Define time history of particles leaving domain as Q.
+        ! Out_age: mass weighted age
+        ! Out_mass: accumulated particle mass 
+        ! Out_comp: mass weighted contribution
+
 integer, allocatable:: ET_np(:), Out_np(:)
+        ! ET_np: total number of particles leaving the domain as ET at time "itime_loc"
+        ! Out_np: total number of particles leaving the domain as Q at time "itime_loc" 
 
-real*8  ET_dt, DR_Temp
-! time interval for ET
-! integer counters and operators.
-! the first set are used for total run timing the latter for component timing
+real*8  ET_dt
+        ! Time interval for ET
+
 integer  Total_time1, Total_time2, t1, t2, IO_time_read, IO_time_write, parallel_time
-integer  sort_time
-!! integers for writing C or point based output
-integer ipwrite, ibinpntswrite
+        ! Integer counters and operators.
+        ! The first set are used for total run timing, the latter for component timing
 
+integer  sort_time
+        ! Wall clock time taken to sort np_active
+        
+integer ipwrite, ibinpntswrite, icwrite
+        ! Integers for IO control
+        
+        ! ipwrite: controls an ASCII, .3D particle file not recommended due to poor performance
+        ! this is left as a compiler option, currently disabled
+        
+        ! ibinpntswrite: controls VTK, binary output of particle locations and attributes. This is much faster
+        ! than the .3D ASCII output but is still much slower than grid based output. It provides the most
+        ! information as particle locations are preserved
+
+        ! icwrite: controls VTK, binary grid based output where particle masses, concentrations,
+        ! ages are mapped to a grid and written every N timesteps. This is the most effiecient output
+        ! but loses some accuracy or flexbility becuase individual particle locations are aggregated
+        ! to the grid
+        
 integer i, j, k, l, ik, ji, m, ij, jj
         ! Local variables
 
-!! IO control
-!! ipwrite controls an ASCII, .3D particle file not recommended due to poor performance
-!! this is left as a compiler option, currently disabled
-!!!!!!!
-!! icwrite controls VTK, binary grid based output where particle masses, concentrations,
-!! ages are mapped to a grid and written every N timesteps.  This is the most effiecient output
-!! but loses some accuracy or flexbility becuase individual particle locations are aggregated
-!! to the grid
-!!!!!!!!
-!! ibinpntswrite controls VTK, binary output of particle locations and attributes.  This is much faster
-!! than the .3D ASCII output but is still much slower than grid based output.  It provides the most
-!! information as particle locations are preserved
-
-
+real*8  DR_Temp
+        
+real*8 Zr, z1, z2, z3
+        ! random variables
 
 interface
   SUBROUTINE vtk_write(time,x,conc_header,ixlim,iylim,izlim,icycle,n_constituents,Pnts,vtk_file)
