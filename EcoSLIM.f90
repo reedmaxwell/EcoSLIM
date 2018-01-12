@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------
 ! EcoSLIM is a Lagrangian, particle-tracking model for simulating
-! subsurface and surface transport of reactive (such as
+! subsurface and (surface) transport of reactive (such as
 ! microbial agents and metals) and non-reactive contaminants,
 ! diagnosing travel times, pathways etc., which integrates
 ! seamlessly with ParFlow.
@@ -11,37 +11,76 @@
 !               Laura Condon (lecondon@syr.edu)
 !               Lindsay Bearup (lbearup@usbr.gov)
 !
-! released under GNU LPGL, see LICENSE file for details
+! Released under GNU LPGL, see LICENSE file for details
 !
 !--------------------------------------------------------------------
 ! MAIN FORTRAN CODE
 !--------------------------------------------------------------------
-! EcoSLIM_main.f90: The main fortran code performing particle tracking
-!                 Use Makefile provided to build.
-!
-!
+! EcoSLIM.f90: The main fortran code performing particle tracking.
+!              Users can use Makefile provided to build.
 !
 !--------------------------------------------------------------------
 ! INPUTS
 !--------------------------------------------------------------------
-! slimin.txt: Includes the domain's geometric information,
-!             ParFlow timesteps and their total number, and particles
-!             initial locations.
+! slimin.txt: Main input file, including/defining:
+!             * Number of ParFLow grid cells in the x-direction
+!             * Number of ParFLow grid cells in the y-direction
+!             * Number of ParFLow grid cells in the z-direction
+!             * ParFLow grid cell size in the x-direction
+!             * ParFLow grid cell size in the y-direction
+!             * ParFLow grid cell size in the z-direction
+!             * Number of particles per cell at start of simulation
+!             * Total numner of particles to be tracked
+!             * ParFlow timestep
+!             * ParFlow file number to start from
+!             * ParFlow file number to stop at
+!             * Velocity multiplier: 1.0=forward tracking, -1.0=backward tracking
+!             * A logical parameter detrmining whether CLM Evap Trans is on or off
+!             * Number of particles entering domain via Evap Trans
+!             * Density of water  
+!             * A logical parameter detrmining whether CLM Evap Trans is on or off
+!             * Molecular Diffusivity
+!             * Fraction of Dx/Vx (also Dy/Vy and Sz/Vz) for numerical stability  
 !
 !--------------------------------------------------------------------
 ! SUBROUTINES
 !--------------------------------------------------------------------
-! pfb_read(arg1,...,arg5).f90: Reads a ParFlow .pfb output file and
+! pfb_read(arg1,...,arg5).f90: Reads a ParFlow .pfb file and
 !                              stores it in a matrix. Arguments
 !                              in order are:
 !
-!                              - arg1: Name of the matrix in which
-!                                      ParFlow .pfb is stored
-!                              - arg2: Corresponding .pfb file name,
+!                              - arg1: The matrix in which the
+!                                      ParFlow .pfb data is stored.
+!                              - arg2: ParFlow .pfb file name,
 !                                      e.g., test.out.press.00100.pfb
-!                              - arg3: Number of cells in x-direction
-!                              - arg4: Number of cells in y-direction
-!                              - arg5: Number of cells in z-direction
+!                              - arg3: Number of grid cells in x-direction
+!                              - arg4: Number of grid cells in y-direction
+!                              - arg5: Number of gird cells in z-direction
+!
+! ran1(arg1).f90: Generates a random number
+!
+! vtk_write(arg1,...,arg10).f90: Writes a concentration array (C) as a .vtk file.
+!                                Arguments in order are:
+!                              
+!                              - arg1: The time as which C is written
+!                              - arg2: The C array to be written
+!                              - arg3: Concentration header
+!                              - arg4: Number of grid cells in x-direction
+!                              - arg5: Number of grid cells in y-direction
+!                              - arg6: Number of grid cells in z-direction
+!                              - arg7: Counter for the file number
+!                              - arg8: Number of constituents
+!                              - arg9: Grid points coordinates for concentration output
+!                              - arg10: The name of the .vtk file
+!
+! vtk_write_points(arg1,...,arg5).f90: Writes the active particles info as a .vtk file.
+!                         Arguments in order are:
+!
+!                              - arg1: The particles array
+!                              - arg2: Number of active particles
+!                              - arg3: Total number of particles
+!                              - arg4: Counter for the file number
+!                              - arg5: The name of the .vtk file
 !
 !--------------------------------------------------------------------
 ! OUTPUTS
