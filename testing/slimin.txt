@@ -5,7 +5,7 @@ SLIM_hillslope   ! SLIM run name
 50     !nz
 20   !particles per cell at start of simulation
 11000000   !np Total
-5.0     ! number of concentration constituents
+5.0     !number of concentration constituents
 5.0     !dx
 0.2     !dy, dz follows
 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1
