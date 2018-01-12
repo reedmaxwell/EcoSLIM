@@ -153,80 +153,130 @@ real*8,allocatable::Vz(:,:,:)
 real*8,allocatable::C(:,:,:,:)
         ! Concentration array, in i,j,k with l (first index) as constituent or
         ! property.
+
 CHARACTER*20,allocatable:: conc_header(:)
-        ! name for variables written in the C array above.  Dimensioned as l above.
+        ! Name for variables written in the C array above. Dimensioned as l above.
+
 real*8,allocatable::Time_Next(:)
         ! Vector of real times at which ParFlow dumps outputs
 
 real*8,allocatable::dz(:), Zt(:)
-        ! Delta Z values in the vertical direction
-        ! Elevations in z-direction in local coordinates
+        ! dz: Delta Z values in the vertical direction
+        ! Zt: Elevations in z-direction in local coordinates
 
-real*8,allocatable::Sx(:,:)  ! Sx: Slopes in x-direction (not used)
-real*8,allocatable::Sy(:,:)  ! Sy: Slopes in y-direction (not used)
+real*8,allocatable::Sx(:,:)  
+        ! Sx: Slopes in x-direction (not used)
 
-real*8,allocatable::Saturation(:,:,:)    ! Saturation (read from ParFlow)
-real*8,allocatable::Porosity(:,:,:)      ! Porosity (read from ParFlow)
-real*8,allocatable::EvapTrans(:,:,:)     ! CLM EvapTrans (read from ParFlow, [1/T] units)
-real*8,allocatable::CLMvars(:,:,:)     ! CLM Output (read from ParFlow, following single file
-                                       ! CLM output as specified in the manual)
-real*8, allocatable::Pnts(:,:), DEM(:,:) ! DEM and grid points for concentration output
+real*8,allocatable::Sy(:,:)  
+        ! Sy: Slopes in y-direction (not used)
+
+real*8,allocatable::Saturation(:,:,:)    
+        ! Saturation (read from ParFlow)
+
+real*8,allocatable::Porosity(:,:,:)      
+        ! Porosity (read from ParFlow)
+
+real*8,allocatable::EvapTrans(:,:,:)     
+        ! CLM EvapTrans (read from ParFlow, [1/T] units)
+
+real*8,allocatable::CLMvars(:,:,:)     
+        ! CLM Output (read from ParFlow, following single file
+        ! CLM output as specified in the manual)
+
+real*8, allocatable::Pnts(:,:), DEM(:,:) 
+        ! DEM and grid points for concentration output
 
 integer Ploc(3)
-        ! Particle's location whithin a cell
+        ! The cell number adjacent to the particle's location
 
-integer nx, nnx, ny, nny, nz, nnz
-        ! number of cells in the domain and cells+1 in x, y, and z directions
+integer nx, ny, nz
+        ! Number of cells in domain in x, y, and z directions
 
-integer np_ic, np, np_active, np_active2, icwrite, jj, npnts, ncell
-        ! number of particles for intial pulse IC, total, and running active
+integer nnx, nny, nnz
+        ! Number of cells in domain plus 1 in x, y, and z directions
+        ! e.g., nnx = nx + 1
 
-integer nt, n_constituents
-        ! number of timesteps ParFlow; numer of C vectors written for VTK output
+integer np_ic, np, np_active, np_active2, icwrite, npnts, ncell
+        ! np_ic: number of particles for intial pulse IC, total, and running active
+        ! np:  total number of particles
+        ! np_active: total number of active particles
+        ! np_active2: a variable to sort particles to move inactive ones to the end and active ones up
+        ! icwrite: a logical parameter controlling vtk_write.f90 (1 = write .vtk outputs)
+        ! npnts: = nnx*nny*nnz
+        ! ncell: total number of cells in domain
+        
+integer nt
+        ! Number of timesteps ParFlow
 
-real*8  pfdt, advdt(3)
+integer n_constituents
+        ! Numer of C vectors written for VTK output
+        
+real*8  pfdt
         ! ParFlow timestep value, advection timestep for each direction
-        ! for each individual particle step; used to chose optimal particle timestep
 
-integer pft1, pft2, pfnt
-        ! parflow start and stop file numbers number of ParFlow timesteps
+real*8  advdt(3)
+        ! For each individual particle step; used to chose optimal particle timestep
+
+integer pft1, pft2
+        ! pft1: parflow start file number
+        ! pft2: parflow stop file number
+
+integer pfnt
+        ! Number of ParFlow timesteps
 
 real*8  Time_first
-        ! initial timestep for Parflow ((pft1-1)*pfdt)
+        ! Initial timestep for Parflow ((pft1-1)*pfdt)
 
 integer kk
         ! Loop counter for the time steps (pfnt)
+
 integer pfkk
-       ! Counter for the file numbers starts at pft1
+       ! Counter for the file numbers; starts at pft1
+
 integer ii
         ! Loop counter for the number of particles (np)
+
 integer iflux_p_res
         ! Number of particles per cell for flux input
-integer i, j, k, l, ik, ji, m, ij, nzclm, nCLMsoil
+
+integer nCLMsoil
+        ! Number of CLM soil layers over the root zone
+
+integer nzclm
+        ! Number of CLM output variables (=13+nCLMsoil)
+        
 integer itime_loc
-        ! Local indices / counters
+        ! The time index at which total number of particles and their age, mass, and 
+        ! composition are stored for outflow and evapotranspiration 
+
 integer*4 ir
+        ! The input argument for ran1.f90
 
 character*200 runname, filenum, pname, fname, vtk_file
         ! runname = SLIM runname
         ! filenum = ParFlow file number
         ! pname = ParFlow output runname
         ! fname = Full name of a ParFlow's output
-        ! vtk_file = concentration file
+        ! vtk_file = Concentration file name
 
-real*8 Clocx, Clocy, Clocz, Z, maxz
-        ! The fractional location of each particle within it's grid cell
-        ! Particle Z location
+real*8 Clocx, Clocy, Clocz
+        ! The fractional locations of a particle within its grid cell
+
+real*8 Z, maxz
+        ! Z: Particle Z location
+        ! maxz: Maximum Z location in domain
 
 real*8 V_mult
         ! Multiplier for forward/backward particle tracking
         ! If V_mult = 1, forward tracking
         ! If V_mult = -1, backward tracking
 
-logical clmtrans, clmfile
-        ! logical for mode of operation with CLM, will add particles with P-ET > 0
+logical clmtrans
+        ! Logical for mode of operation with CLM, will add particles with P-ET > 0,
         ! will remove particles if ET > 0
-        ! clmfile governs reading of the full CLM output, not just evaptrans
+
+logical clmfile
+        ! Governs reading of the full CLM output, not just evaptrans
 
 real*8 dtfrac
         ! fraction of dx/Vx (as well as dy/Vy and dz/Vz) assuring
@@ -276,6 +326,9 @@ integer  Total_time1, Total_time2, t1, t2, IO_time_read, IO_time_write, parallel
 integer  sort_time
 !! integers for writing C or point based output
 integer ipwrite, ibinpntswrite
+
+integer i, j, k, l, ik, ji, m, ij, jj
+        ! Local variables
 
 !! IO control
 !! ipwrite controls an ASCII, .3D particle file not recommended due to poor performance
@@ -399,8 +452,10 @@ nzclm = 13+nCLMsoil ! CLM output is 13+nCLMsoil layers for different variables n
            !  e.g. 23 for 10 soil layers (default) and 17 for 4 soil layers (Noah soil
            ! layer setup)
 
-!  number of things written to C array, hard wired at 2 now for Testing
-n_constituents = 5
+!  number of constituents written to C array
+read(10,*) n_constituents
+write(11,*) 'n_constituents:',n_constituents
+
 !allocate arrays
 allocate(PInLoc(np,3))
 allocate(Sx(nx,ny),Sy(nx,ny), DEM(nx,ny))
@@ -467,9 +522,11 @@ Time_first = float(pft1-1)*pfdt
 ! read in velocity multiplier
 read(10,*) V_mult
 
-! read in clm flux
+! read in clmtrans
 read(10,*) clmtrans
-clmfile = .False.   !!!@RMM hard wired for test case, need to make this input
+
+! read in clmfile
+read(10,*) clmfile
 
 ! read in IC number of particles for flux
 read(10,*) iflux_p_res
