@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------
 ! EcoSLIM is a Lagrangian, particle-tracking model for simulating
-! subsurface and surface transport of reactive (such as
+! subsurface and (surface) transport of reactive (such as
 ! microbial agents and metals) and non-reactive contaminants,
-! diagnosing travel times, paths etc., which integrates
+! diagnosing travel times, pathways etc., which integrates
 ! seamlessly with ParFlow.
 !
 ! Developed by: Reed Maxwell-August 2016 (rmaxwell@mines.edu)
@@ -11,37 +11,77 @@
 !               Laura Condon (lecondon@syr.edu)
 !               Lindsay Bearup (lbearup@usbr.gov)
 !
-! released under GNU LPGL, see LICENSE file for details
+! Released under GNU LPGL, see LICENSE file for details
 !
 !--------------------------------------------------------------------
 ! MAIN FORTRAN CODE
 !--------------------------------------------------------------------
-! EcoSLIM_main.f90: The main fortran code performing particle tracking
-!                 Use Makefile provided to build.
-!
-!
+! EcoSLIM.f90: The main fortran code performing particle tracking.
+!              Users can use Makefile provided to build.
 !
 !--------------------------------------------------------------------
 ! INPUTS
 !--------------------------------------------------------------------
-! slimin.txt: Includes the domain's geometric information,
-!             ParFlow timesteps and their total number, and particles
-!             initial locations.
+! slimin.txt: Main input file, including/defining:
+!             * Number of ParFLow grid cells in the x-direction
+!             * Number of ParFLow grid cells in the y-direction
+!             * Number of ParFLow grid cells in the z-direction
+!             * ParFLow grid cell size in the x-direction
+!             * ParFLow grid cell size in the y-direction
+!             * ParFLow grid cell size in the z-direction
+!             * Number of particles per cell at start of simulation
+!             * Total number of particles to be tracked
+!             * ParFlow timestep
+!             * ParFlow file number to start from
+!             * ParFlow file number to stop at
+!             * Velocity multiplier: 1.0=forward tracking, -1.0=backward tracking
+!             * A logical parameter detrmining whether CLM Evap Trans is on or off
+!             * Number of particles entering domain via Evap Trans
+!             * Density of water  
+!             * A logical parameter detrmining whether CLM Evap Trans is on or off
+!             * Molecular Diffusivity
+!             * Fraction of Dx/Vx (also Dy/Vy and Sz/Vz) for numerical stability
+!             * Number of concetration constituents
 !
 !--------------------------------------------------------------------
 ! SUBROUTINES
 !--------------------------------------------------------------------
-! pfb_read(arg1,...,arg5).f90: Reads a ParFlow .pfb output file and
+! pfb_read(arg1,...,arg5).f90: Reads a ParFlow .pfb file and
 !                              stores it in a matrix. Arguments
 !                              in order are:
 !
-!                              - arg1: Name of the matrix in which
-!                                      ParFlow .pfb is stored
-!                              - arg2: Corresponding .pfb file name,
+!                              - arg1: The matrix in which the
+!                                      ParFlow .pfb data is stored.
+!                              - arg2: ParFlow .pfb file name,
 !                                      e.g., test.out.press.00100.pfb
-!                              - arg3: Number of cells in x-direction
-!                              - arg4: Number of cells in y-direction
-!                              - arg5: Number of cells in z-direction
+!                              - arg3: Number of grid cells in x-direction
+!                              - arg4: Number of grid cells in y-direction
+!                              - arg5: Number of gird cells in z-direction
+!
+! ran1(arg1).f90: Generates a random number
+!
+! vtk_write(arg1,...,arg10).f90: Writes a concentration array (C) as a .vtk file.
+!                                Arguments in order are:
+!                              
+!                              - arg1: The time as which C is written
+!                              - arg2: The C array to be written
+!                              - arg3: Concentration header
+!                              - arg4: Number of grid cells in x-direction
+!                              - arg5: Number of grid cells in y-direction
+!                              - arg6: Number of grid cells in z-direction
+!                              - arg7: Counter for the file number
+!                              - arg8: Number of constituents
+!                              - arg9: Grid points coordinates for concentration output
+!                              - arg10: The name of the .vtk file
+!
+! vtk_write_points(arg1,...,arg5).f90: Writes the active particles info as a .vtk file.
+!                         Arguments in order are:
+!
+!                              - arg1: The particles array
+!                              - arg2: Number of active particles
+!                              - arg3: Total number of particles
+!                              - arg4: Counter for the file number
+!                              - arg5: The name of the .vtk file
 !
 !--------------------------------------------------------------------
 ! OUTPUTS
@@ -65,36 +105,37 @@
 ! CODE STRUCTURE
 !--------------------------------------------------------------------
 ! (1) Define variables
-!
-! (2) Read inputs, set up domain, write the log file, and
-!     initialize particles,
-!
-! (3) For each timestep, loop over all particles to find and
+! (2) Define subroutines
+! (3) Read inputs, set up domain, write the log file, and initialize particles
+! (4) For each timestep, loop over all particles to find and
 !     update their new locations
 !--------------------------------------------------------------------
-
 
 program EcoSLIM
 use ran_mod
 implicit none
+
 !--------------------------------------------------------------------
-! (1) Define variables
+! (1) Define parameters/variables/indices
 !--------------------------------------------------------------------
 
 real*8,allocatable::P(:,:)
         ! P = Particle array [np,attributes]
         ! np = Number of particles
-        ! P(np,1) = X coordinate [L]
-        ! P(np,2) = Y coordinate [L]
-        ! P(np,3) = Z coordinate [L]
-        ! P(np,4) = Particle residence time [T]
-        ! P(np,5) = Saturated particle residence time [T]
+        ! P(np,1) = X coordinate
+        ! P(np,2) = Y coordinate
+        ! P(np,3) = Z coordinate
+        ! P(np,4) = Particle residence time
+        ! P(np,5) = Particle residence time in saturated grid cells
         ! P(np,6) = Particle mass; assigned via preciptiation or snowmelt rate (Evap_Trans*density*volume*dT)
-        ! P(np,7) = Particle source (1=IC, 2=rain, 3=snowmelt...)
-        ! P(np,8) = Particle Status (1=active, 0=inactive)
-        ! P(np,9) = concentration
+        ! P(np,7) = Particle source (1=IC, 2=rain, 3=snowmelt, ...)
+        ! P(np,8) = Particle status (1=active, 0=inactive)
+        ! P(np,9) = Concentration
 
 !@ RMM, why is this needed?
+! Reply by MDY (01-12-2018): For the HP paper, I needed to know the initial location
+! of the particles for some specific purposes. We can delete this 
+! array without influencing the core of the code.
 real*8,allocatable::PInLoc(:,:)
         ! PInLoc(np,1) = Particle initial X location
         ! PInLoc(np,2) = Particle initial Y location
@@ -103,90 +144,141 @@ real*8,allocatable::PInLoc(:,:)
 real*8,allocatable::Vx(:,:,:)
 real*8,allocatable::Vy(:,:,:)
 real*8,allocatable::Vz(:,:,:)
-        ! Vx = Velocity x-direction [nx+1,ny,nz] -- ParFlow output
-        ! Vy = Velocity y-direction [nx,ny+1,nz] -- ParFlow output
-        ! Vz = Velocity z-direction [nx,ny,nz+1] -- ParFlow output
+        ! Vx = Velocity array in the x-direction [nx+1,ny,nz] -- ParFlow output
+        ! Vy = Velocity array in the y-direction [nx,ny+1,nz] -- ParFlow output
+        ! Vz = Velocity array in the z-direction [nx,ny,nz+1] -- ParFlow output
 
 real*8,allocatable::C(:,:,:,:)
-        ! Concentration array, in i,j,k with l (first index) as consituent or
-        ! property.  These are set by user at runtime using input
+        ! Concentration array, in i,j,k with l (first index) as constituent or
+        ! property.
+
 CHARACTER*20,allocatable:: conc_header(:)
-        ! name for variables written in the C array above.  Dimensioned as l above.
+        ! Name for variables written in the C array above. Dimensioned as l above.
+
 real*8,allocatable::Time_Next(:)
         ! Vector of real times at which ParFlow dumps outputs
 
 real*8,allocatable::dz(:), Zt(:)
-        ! Delta Z values in the vertical direction
-        ! Elevations in z-direction in local coordinates
+        ! dz: Delta Z values in the vertical direction
+        ! Zt: Elevations in z-direction in local coordinates
 
-real*8,allocatable::Sx(:,:)  ! Sx: Slopes in x-direction (not used)
-real*8,allocatable::Sy(:,:)  ! Sy: Slopes in y-direction (not used)
+real*8,allocatable::Sx(:,:)  
+        ! Sx: Slopes in x-direction (not used)
 
-real*8,allocatable::Saturation(:,:,:)    ! Saturation (read from ParFlow)
-real*8,allocatable::Porosity(:,:,:)      ! Porosity (read from ParFlow)
-real*8,allocatable::EvapTrans(:,:,:)     ! CLM EvapTrans (read from ParFlow, [1/T] units)
-real*8,allocatable::CLMvars(:,:,:)     ! CLM Output (read from ParFlow, following single file
-                                       ! CLM output as specified in the manual)
-real*8, allocatable::Pnts(:,:), DEM(:,:) ! DEM and grid points for concentration output
+real*8,allocatable::Sy(:,:)  
+        ! Sy: Slopes in y-direction (not used)
+
+real*8,allocatable::Saturation(:,:,:)    
+        ! Saturation (read from ParFlow)
+
+real*8,allocatable::Porosity(:,:,:)      
+        ! Porosity (read from ParFlow)
+
+real*8,allocatable::EvapTrans(:,:,:)     
+        ! CLM EvapTrans (read from ParFlow, [1/T] units)
+
+real*8,allocatable::CLMvars(:,:,:)     
+        ! CLM Output (read from ParFlow, following single file
+        ! CLM output as specified in the manual)
+
+real*8, allocatable::Pnts(:,:), DEM(:,:) 
+        ! Pnts: grid points for concentration output
+        ! DEM: Digital Elevation Model for concentration output
 
 integer Ploc(3)
-        ! Particle's location whithin a cell
+        ! The cell number adjacent to the particle's location
 
-integer nx, nnx, ny, nny, nz, nnz
-        ! number of cells in the domain and cells+1 in x, y, and z directions
+integer nx, ny, nz
+        ! Number of cells in domain in x, y, and z directions
 
-integer np_ic, np, np_active, np_active2, icwrite, jj, npnts, ncell
-        ! number of particles for intial pulse IC, total, and running active
+integer nnx, nny, nnz
+        ! Number of cells in domain plus 1 in x, y, and z directions
+        ! e.g., nnx = nx + 1
 
-integer nt, n_constituents
-        ! number of timesteps ParFlow; numer of C vectors written for VTK output
+integer np_ic, np, np_active, np_active2, npnts, ncell
+        ! np_ic: number of particles for intial pulse IC, total, and running active
+        ! np:  total number of particles
+        ! np_active: total number of active particles
+        ! np_active2: a variable to sort particles to move inactive ones to the end and active ones up
+        ! npnts: = nnx*nny*nnz
+        ! ncell: total number of cells in domain
+        
+integer nt
+        ! Number of timesteps ParFlow
 
-real*8  pfdt, advdt(3)
+integer n_constituents
+        ! Numer of C vectors written for VTK output
+        
+real*8  pfdt
         ! ParFlow timestep value, advection timestep for each direction
-        ! for each individual particle step; used to chose optimal particle timestep
 
-integer pft1, pft2, pfnt
-        ! parflow start and stop file numbers number of ParFlow timesteps
+real*8  advdt(3)
+        ! For each individual particle step; used to chose optimal particle timestep
+
+integer pft1, pft2
+        ! pft1: parflow start file number
+        ! pft2: parflow stop file number
+
+integer pfnt
+        ! Number of ParFlow timesteps
 
 real*8  Time_first
-        ! initial timestep for Parflow ((pft1-1)*pfdt)
+        ! Initial timestep for Parflow ((pft1-1)*pfdt)
 
 integer kk
         ! Loop counter for the time steps (pfnt)
+
 integer pfkk
-       ! Counter for the file numbers starts at pft1
+       ! Counter for the file numbers; starts at pft1
+
 integer ii
         ! Loop counter for the number of particles (np)
+
 integer iflux_p_res
         ! Number of particles per cell for flux input
-integer i, j, k, l, ik, ji, m, ij, nzclm, nCLMsoil
-integer itime_loc
-        ! Local indices / counters
-integer*4 ir
 
-character*200 runname, filenum, pname, fname, vtk_file
+integer nCLMsoil
+        ! Number of CLM soil layers over the root zone
+
+integer nzclm
+        ! Number of CLM output variables (=13+nCLMsoil)
+        
+integer itime_loc
+        ! The time index at which total number of particles and their age, mass, and 
+        ! composition are stored for outflow and evapotranspiration 
+
+integer*4 ir
+        ! The input argument for ran1.f90
+
+character*200 runname, filenum, pname, fname, DEMname, vtk_file
         ! runname = SLIM runname
         ! filenum = ParFlow file number
         ! pname = ParFlow output runname
         ! fname = Full name of a ParFlow's output
-        ! vtk_file = concentration file
+        ! DEMname = DEM file name
+        ! vtk_file = Concentration file name
 
-real*8 Clocx, Clocy, Clocz, Z, maxz
-        ! The fractional location of each particle within it's grid cell
-        ! Particle Z location
+real*8 Clocx, Clocy, Clocz
+        ! The fractional locations of a particle within its grid cell
+
+real*8 Z, maxz
+        ! Z: Particle Z location
+        ! maxz: Maximum Z location in domain
 
 real*8 V_mult
         ! Multiplier for forward/backward particle tracking
         ! If V_mult = 1, forward tracking
         ! If V_mult = -1, backward tracking
 
-logical clmtrans, clmfile
-        ! logical for mode of operation with CLM, will add particles with P-ET > 0
+logical clmtrans
+        ! Logical for mode of operation with CLM, will add particles with P-ET > 0,
         ! will remove particles if ET > 0
-        ! clmfile governs reading of the full CLM output, not just evaptrans
+
+logical clmfile
+        ! Governs reading of the full CLM output, not just evaptrans
 
 real*8 dtfrac
-        ! fraction of dx/Vx (as well as dy/Vy and dz/Vz) assuring
+        ! Fraction of dx/Vx (as well as dy/Vy and dz/Vz) assuring
         ! numerical stability while advecting a particle to a new
         ! location.
 
@@ -200,63 +292,94 @@ real*8 dx, dy
 real*8 Vpx, Vpy, Vpz
         ! Particle velocity in x, y, and z directions
 
-real*8 particledt, delta_time
+real*8 particledt
         ! The time it takes for a particle to displace from
-        ! one location to another and the local particle from-to time
-        ! for each PF timestep
+        ! one location to another
 
-real*8 local_flux, et_flux, water_vol, Zr, z1, z2, z3
-        ! The local cell flux convergence
-        ! The volumetric ET flux
-        ! The availble water volume in a cell
-        ! random variable
+real*8 delta_time
+        ! The local particle from-to time for each ParFlow timestep
+
+real*8 local_flux, et_flux, water_vol
+        ! local_flux: The local cell flux convergence
+        ! et_flux: The volumetric ET flux
+        ! water_vol: The availble water volume in a cell
 
 real*8 Xlow, Xhi, Ylow, Yhi, Zlow, Zhi
-        ! Particles initial locations i.e., where they are injected
-        ! into the domain.
+        ! Define the lowest and highest bounds within which particles
+        ! enter the domain
 
-! density of water (M/L3), molecular diffusion (L2/T), fractionation
-real*8 denh2o, moldiff, Efract  !, ran1
+real*8 denh2o
+        ! Density of water (M/L^3)
 
-! time history of ET, time (1,:) and mass for rain (2,:), snow (3,:),
-! PET balance is water balance flux from PF accumulated over the domain at each
-! timestep
+real*8 moldiff
+        ! Molecular diffusion (L^2/T)
+
+real*8 Efract
+        ! Evaporation fractionation
+
 real*8, allocatable::ET_age(:,:), ET_mass(:,:), ET_comp(:,:), PET_balance(:,:)
+        ! Define time history of particles leaving domain as ET.
+        ! ET_age: mass weighted age
+        ! ET_mass: accumulated particle mass 
+        ! ET_comp: mass weighted contribution
+        ! PET_balance: water balance flux from ParFlow accumulated over the domain at each timestep
+
 real*8, allocatable::Out_age(:,:), Out_mass(:,:), Out_comp(:,:)
+        ! Define time history of particles leaving domain as Q.
+        ! Out_age: mass weighted age
+        ! Out_mass: accumulated particle mass 
+        ! Out_comp: mass weighted contribution
+
 integer, allocatable:: ET_np(:), Out_np(:)
+        ! ET_np: total number of particles leaving the domain as ET at time "itime_loc"
+        ! Out_np: total number of particles leaving the domain as Q at time "itime_loc" 
 
-real*8  ET_dt, DR_Temp
-! time interval for ET
-! integer counters and operators.
-! the first set are used for total run timing the latter for component timing
+real*8  ET_dt
+        ! Time interval for ET
+
 integer  Total_time1, Total_time2, t1, t2, IO_time_read, IO_time_write, parallel_time
+        ! Integer counters and operators.
+        ! The first set are used for total run timing, the latter for component timing
+
 integer  sort_time
-!! integers for writing C or point based output
-integer ipwrite, ibinpntswrite
+        ! Wall clock time taken to sort np_active
+        
+integer ipwrite, ibinpntswrite, icwrite
+        ! Integers for IO control
+        
+        ! ipwrite: controls an ASCII, .3D particle file not recommended due to poor performance
+        ! this is left as a compiler option, currently disabled
+        
+        ! ibinpntswrite: controls VTK, binary output of particle locations and attributes. This is much faster
+        ! than the .3D ASCII output but is still much slower than grid based output. It provides the most
+        ! information as particle locations are preserved
 
-!! IO control
-!! ipwrite controls an ASCII, .3D particle file not recommended due to poor performance
-!! this is left as a compiler option, currently disabled
-!!!!!!!
-!! icwrite controls VTK, binary grid based output where particle masses, concentrations,
-!! ages are mapped to a grid and written every N timesteps.  This is the most effiecient output
-!! but loses some accuracy or flexbility becuase individual particle locations are aggregated
-!! to the grid
-!!!!!!!!
-!! ibinpntswrite controls VTK, binary output of particle locations and attributes.  This is much faster
-!! than the .3D ASCII output but is still much slower than grid based output.  It provides the most
-!! information as particle locations are preserved
+        ! icwrite: controls VTK, binary grid based output where particle masses, concentrations,
+        ! ages are mapped to a grid and written every N timesteps. This is the most effiecient output
+        ! but loses some accuracy or flexbility becuase individual particle locations are aggregated
+        ! to the grid
+        
+integer i, j, k, l, ik, ji, m, ij, jj
+        ! Local variables
 
+real*8  DR_Temp
+        
+real*8 Zr, z1, z2, z3
+        ! random variables
 
+!--------------------------------------------------------------------
+! (2) Define subroutines
+!--------------------------------------------------------------------
 
 interface
-  SUBROUTINE vtk_write(time,x,conc_header,ixlim,iylim,izlim,icycle,n_constituents,Pnts,vtk_file)
+
+SUBROUTINE vtk_write(time,x,conc_header,ixlim,iylim,izlim,icycle,n_constituents,Pnts,vtk_file)
   real*8                 :: time
-  REAL*8    :: x(:,:,:,:)
+  REAL*8                 :: x(:,:,:,:)
   CHARACTER (LEN=20)     :: conc_header(:)
-  INTEGER*4 :: ixlim
-  INTEGER*4 :: iylim
-  INTEGER*4 :: izlim
+  INTEGER*4              :: ixlim
+  INTEGER*4              :: iylim
+  INTEGER*4              :: izlim
   REAL*8                 :: dx
   REAL*8                 :: dy
   REAL*8                 :: dz(izlim)
@@ -267,7 +390,7 @@ interface
 end subroutine vtk_write
 
 SUBROUTINE vtk_write_points(P,np_active, np,icycle,vtk_file)
-REAL*8    :: P(:,:)
+REAL*8                 :: P(:,:)
 INTEGER                :: icycle
 INTEGER*4              :: np_active
 INTEGER*4              :: np
@@ -277,7 +400,11 @@ end subroutine vtk_write_points
 
 end interface
 
-!Set up timing
+!------------------------------------------------------------------------------
+! (3) Read inputs, set up domain, write the log file, and initialize particles
+!------------------------------------------------------------------------------
+
+! Set up timing
 Total_time1 = 0
 Total_time2 = 0
 t1 = 0
@@ -287,19 +414,7 @@ IO_time_write = 0
 parallel_time = 0
 sort_time = 0
 
-        call system_clock(Total_time1)
-
-!--------------------------------------------------------------------
-! (2) Read inputs, set up domain, write the log file, and
-! initialize particles
-!--------------------------------------------------------------------
-
-! Note: The following file numbers refer to
-!
-!       - #10: slimin.txt
-!       - #11: runname_log.txt
-!       - #12: runname_particle.3D (visualizes particles in VisIT)
-!       - #13: runname_endparticle.txt
+call system_clock(Total_time1)
 
 call system_clock(T1)
 
@@ -311,6 +426,9 @@ read(10,*) runname
 
 ! read ParFlow run name
 read(10,*) pname
+
+! read DEM file name
+read(10,*) DEMname
 
 ! open/create/write the output log.txt file. If doesn't exist, it's created.
 open(11,file=trim(runname)//'_log.txt')
@@ -329,8 +447,8 @@ read(10,*) np_ic
 read(10,*) np
 
 if (np_ic > np) then
-write(11,*) ' warning NP_IC greater than IC'
-np = np_ic
+        write(11,*) ' warning NP_IC greater than IC'
+        np = np_ic
 end if
 
 ! write nx, ny, nz, and np in the log file
@@ -346,19 +464,21 @@ allocate(P(np,10))
 P(1:np,1:6) = 0    ! clear out all particle attributes
 P(1:np,7:9) = 1.0  ! make all particles active to start with and original from 1 = GW/IC
 
-! grid +1 variables
-nnx=nx+1
-nny=ny+1
-nnz=nz+1
+! grid+1 variables
+nnx = nx + 1
+nny = ny + 1
+nnz = nz + 1
 
-nCLMsoil = 10 ! number of CLM soil layers over the root zone
-nzclm = 13+nCLMsoil ! CLM output is 13+nCLMsoil layers for different variables not domain NZ,
-           !  e.g. 23 for 10 soil layers (default) and 17 for 4 soil layers (Noah soil
-           ! layer setup)
+nCLMsoil = 10         ! number of CLM soil layers over the root zone
+nzclm = 13 + nCLMsoil ! CLM output is 13+nCLMsoil layers for different variables not domain NZ,
+                      !  e.g. 23 for 10 soil layers (default) and 17 for 4 soil layers (Noah soil
+                      ! layer setup)
 
-!  number of things written to C array, hard wired at 2 now for Testing
-n_constituents = 5
-!allocate arrays
+! number of constituents written to C array
+read(10,*) n_constituents
+write(11,*) 'n_constituents:', n_constituents
+
+! allocate arrays
 allocate(PInLoc(np,3))
 allocate(Sx(nx,ny),Sy(nx,ny), DEM(nx,ny))
 allocate(dz(nz), Zt(0:nz))
@@ -367,7 +487,8 @@ allocate(Saturation(nx,ny,nz), Porosity(nx,ny,nz),EvapTrans(nx,ny,nz))
 allocate(CLMvars(nx,ny,nzclm))
 allocate(C(n_constituents,nx,ny,nz))
 allocate(conc_header(n_constituents))
-!Intialize everything to Zero
+
+! Intialize everything to Zero
 Vx = 0.0d0
 Vy = 0.0d0
 Vz = 0.0d0
@@ -390,7 +511,7 @@ read(10,*) pfdt
 ! read in parflow start and stop times
 read(10,*) pft1
 read(10,*) pft2
-pfnt=pft2-pft1+1
+pfnt = pft2 - pft1 + 1
 
 ! set ET DT to ParFlow one and allocate ET arrays accordingly
 ET_dt = pfdt
@@ -408,7 +529,8 @@ Out_mass = 0.0d0
 Out_comp = 0.0d0
 Out_np = 0
 
-!! IO control
+!@ MDY (01-12-2018): should we keep these here and move them to slimin.txt? 
+! IO control
 ipwrite = 0
 ibinpntswrite = 1
 
@@ -424,9 +546,11 @@ Time_first = float(pft1-1)*pfdt
 ! read in velocity multiplier
 read(10,*) V_mult
 
-! read in clm flux
+! read in clmtrans
 read(10,*) clmtrans
-clmfile = .False.   !!!@RMM hard wired for test case, need to make this input
+
+! read in clmfile
+read(10,*) clmfile
 
 ! read in IC number of particles for flux
 read(10,*) iflux_p_res
@@ -438,13 +562,13 @@ read(10,*) denh2o
 !moldiff = (1.15e-9)*3600.d0
 read(10,*) moldiff
 
-!saving Efract for a later time
+! saving Efract for a later time
 !read(10,*) Efract
 
 ! fraction of dx/Vx
 read(10,*) dtfrac
 
-!wite out log file
+! wite out log file
 write(11,'("dx:",e12.5)') dx
 write(11,'("dy:",e12.5)') dy
 write(11,'("dz:",*(e12.5,", "))') dz(1:nz)
@@ -469,24 +593,27 @@ call system_clock(T2)
 
 IO_time_read = IO_time_read + (T2-T1)
 
-!! set up domain boundaries
+! set up domain boundaries
 Xmin = 0.0d0
 Ymin = 0.0d0
 Zmin = 0.0d0
-Xmax = float(nx)*dx
-Ymax = float(ny)*dy
+Xmax = float(nx) * dx
+Ymax = float(ny) * dy
 Zmax = 0.0d0
 do k = 1, nz
         Zmax = Zmax + dz(k)
 end do
 
 !! hard wire DEM  @RMM, to do, need to make this input
+! Reply by @MDY (01-12-2018): how about this? 
+! fname = trim(adjustl(pname))//trim(adjustl(DEMname))//'.pfb'
+! call pfb_read(DEM,fname,nx,ny,nz)
+! (Note: DEMname is already defined above as well as taken as input in slimin.txt)
 do i = 1, nx
   do j = 1, ny
-DEM(i,j) = 0.0D0 + float(i)*dx*0.05
+     DEM(i,j) = 0.0D0 + float(i)*dx*0.05
+  end do
 end do
-end do
-
 
 write(11,*)
 write(11,*) '## Domain Info'
@@ -494,65 +621,60 @@ write(11,'("Xmin:",e12.5," Xmax:",e12.5)') Xmin, Xmax
 write(11,'("Ymin:",e12.5," Ymax:",e12.5)') Ymin, Ymax
 write(11,'("Zmin:",e12.5," Zmax:",e12.5)') Zmin, Zmax
 
-!! DEM set to zero but will be read in as input
-
-!! Set up grid locations for file output
-npnts=nnx*nny*nnz
-ncell=nx*ny*nz
+! Set up grid locations for file output
+npnts = nnx * nny * nnz
+ncell = nx * ny * nz
 
 allocate(Pnts(npnts,3))
-Pnts=0
-m=1
+Pnts = 0
+m = 1
 
 ! Need the maximum height of the model and elevation locations
 Z = 0.0d0
 Zt(0) = 0.0D0
 do ik = 1, nz
-Z = Z + dz(ik)
-Zt(ik) = Z
+        Z = Z + dz(ik)
+        Zt(ik) = Z
 end do
-maxz=Z
+maxz = Z
 
-!! candidate loops for OpenMP
-do k=1,nnz
- do j=1,nny
-  do i=1,nnx
-   Pnts(m,1)=DBLE(i-1)*dx
-   Pnts(m,2)=DBLE(j-1)*dy
-! This is a simple way of handling the maximum edges
-   if (i <= nx) then
-   ii=i
-   else
-   ii=nx
-   endif
-   if (j <= ny) then
-   jj=j
-   else
-   jj=ny
-   endif
-   ! This step translates the DEM
-   ! The specified initial heights in the pfb (z1) are ignored and the
-   !  offset is computed based on the model thickness
-   Pnts(m,3)=(DEM(ii,jj)-maxZ)+Zt(k-1)
-   m=m+1
-  end do
- end do
+! candidate loops for OpenMP
+do k = 1, nnz
+        do j = 1, nny
+                do i = 1, nnx
+                   Pnts(m,1) = DBLE(i-1) * dx
+                   Pnts(m,2) = DBLE(j-1) * dy
+                   ! This is a simple way of handling the maximum edges
+                   if (i <= nx) then
+                        ii = i
+                   else
+                        ii = nx
+                   endif
+                   if (j <= ny) then
+                        jj = j
+                   else
+                        jj = ny
+                   endif
+                   ! This step translates the DEM
+                   ! The specified initial heights in the pfb (z1) are ignored and the
+                   !  offset is computed based on the model thickness
+                   Pnts(m,3) = (DEM(ii,jj)-maxZ) + Zt(k-1)
+                   m = m + 1
+                end do
+        end do
 end do
-
 
 ! Read porosity values from ParFlow .pfb file
-fname=trim(adjustl(pname))//'.out.porosity.pfb'
+fname = trim(adjustl(pname))//'.out.porosity.pfb'
 call pfb_read(Porosity,fname,nx,ny,nz)
 
-! Read the in initial Saturation from ParFlow
-kk = 0
-pfkk=pft1-1
+! Read the initial saturation from ParFlow
+pfkk = pft1 - 1
 !print*, pfkk
 write(filenum,'(i5.5)') pfkk
-fname=trim(adjustl(pname))//'.out.satur.'//trim(adjustl(filenum))//'.pfb'
+fname = trim(adjustl(pname))//'.out.satur.'//trim(adjustl(filenum))//'.pfb'
 call pfb_read(Saturation,fname,nx,ny,nz)
 
-!! Define initial particles' locations and mass
 np_active = 0
 
 PInLoc=0.0d0
@@ -625,7 +747,7 @@ C = 0.0D0
 
 
 !--------------------------------------------------------------------
-! (3) For each timestep, loop over all particles to find and
+! (4) For each timestep, loop over all particles to find and
 !     update their new locations
 !--------------------------------------------------------------------
 ! loop over timesteps
