@@ -605,9 +605,10 @@ do k = 1, nz
 end do
 
 !! hard wire DEM  @RMM, to do, need to make this input
-! Reply by @MDY (01-12-2018): what about this?
+! Reply by @MDY (01-12-2018): how about this? 
 ! fname = trim(adjustl(pname))//trim(adjustl(DEMname))//'.pfb'
 ! call pfb_read(DEM,fname,nx,ny,nz)
+! (Note: DEMname is already defined above as well as taken as input in slimin.txt)
 do i = 1, nx
   do j = 1, ny
      DEM(i,j) = 0.0D0 + float(i)*dx*0.05
@@ -620,65 +621,60 @@ write(11,'("Xmin:",e12.5," Xmax:",e12.5)') Xmin, Xmax
 write(11,'("Ymin:",e12.5," Ymax:",e12.5)') Ymin, Ymax
 write(11,'("Zmin:",e12.5," Zmax:",e12.5)') Zmin, Zmax
 
-!! DEM set to zero but will be read in as input
-
-!! Set up grid locations for file output
-npnts=nnx*nny*nnz
-ncell=nx*ny*nz
+! Set up grid locations for file output
+npnts = nnx * nny * nnz
+ncell = nx * ny * nz
 
 allocate(Pnts(npnts,3))
-Pnts=0
-m=1
+Pnts = 0
+m = 1
 
 ! Need the maximum height of the model and elevation locations
 Z = 0.0d0
 Zt(0) = 0.0D0
 do ik = 1, nz
-Z = Z + dz(ik)
-Zt(ik) = Z
+        Z = Z + dz(ik)
+        Zt(ik) = Z
 end do
-maxz=Z
+maxz = Z
 
-!! candidate loops for OpenMP
-do k=1,nnz
- do j=1,nny
-  do i=1,nnx
-   Pnts(m,1)=DBLE(i-1)*dx
-   Pnts(m,2)=DBLE(j-1)*dy
-! This is a simple way of handling the maximum edges
-   if (i <= nx) then
-   ii=i
-   else
-   ii=nx
-   endif
-   if (j <= ny) then
-   jj=j
-   else
-   jj=ny
-   endif
-   ! This step translates the DEM
-   ! The specified initial heights in the pfb (z1) are ignored and the
-   !  offset is computed based on the model thickness
-   Pnts(m,3)=(DEM(ii,jj)-maxZ)+Zt(k-1)
-   m=m+1
-  end do
- end do
+! candidate loops for OpenMP
+do k = 1, nnz
+        do j = 1, nny
+                do i = 1, nnx
+                   Pnts(m,1) = DBLE(i-1) * dx
+                   Pnts(m,2) = DBLE(j-1) * dy
+                   ! This is a simple way of handling the maximum edges
+                   if (i <= nx) then
+                        ii = i
+                   else
+                        ii = nx
+                   endif
+                   if (j <= ny) then
+                        jj = j
+                   else
+                        jj = ny
+                   endif
+                   ! This step translates the DEM
+                   ! The specified initial heights in the pfb (z1) are ignored and the
+                   !  offset is computed based on the model thickness
+                   Pnts(m,3) = (DEM(ii,jj)-maxZ) + Zt(k-1)
+                   m = m + 1
+                end do
+        end do
 end do
-
 
 ! Read porosity values from ParFlow .pfb file
-fname=trim(adjustl(pname))//'.out.porosity.pfb'
+fname = trim(adjustl(pname))//'.out.porosity.pfb'
 call pfb_read(Porosity,fname,nx,ny,nz)
 
-! Read the in initial Saturation from ParFlow
-kk = 0
-pfkk=pft1-1
+! Read the initial saturation from ParFlow
+pfkk = pft1 - 1
 !print*, pfkk
 write(filenum,'(i5.5)') pfkk
-fname=trim(adjustl(pname))//'.out.satur.'//trim(adjustl(filenum))//'.pfb'
+fname = trim(adjustl(pname))//'.out.satur.'//trim(adjustl(filenum))//'.pfb'
 call pfb_read(Saturation,fname,nx,ny,nz)
 
-!! Define initial particles' locations and mass
 np_active = 0
 
 PInLoc=0.0d0
