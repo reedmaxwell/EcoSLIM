@@ -1,6 +1,6 @@
 rm(list=ls())
-setwd("/Users/lauracondon/Documents/Parflow/EcoSlim/Steady_Flux_Test")
-
+#setwd("/Users/lauracondon/Documents/Parflow/EcoSlim/Steady_Flux_Test")
+setwd("/Users/lauracondon/Documents/ParFlow/EcoSlim_Testing/SteadyFlux_test")
 ###########################################################
 # Setup
 #######################################################
@@ -94,12 +94,12 @@ for(i in 1:nt){
 #Need to add smoothed lines onto this
 #plotting mass and storage ratios
 #Mass
-par(mfrow=c(5,2))
+par(mfrow=c(5,2), mar=c(4,4,2,2))
 for(i in 1:10){
 plot(t1:t2, ET_grid[i,5,], type='l', col='darkgrey', xlab='time', ylab='mass', main=paste("Cell, x=", i), axes=F, ylim=c(0,6))
 axis(1)
 axis(2)
-abline(h=PF_flux, col=2, lwd=2)
+abline(h=ET_PF, col=2, lwd=2)
 par(new=T)
 plot(t1:t2, rat[i,], type='l', col='blue', axes=F, xlab="", ylab="", ylim=c(0,5))
 axis(4, col='blue')
@@ -107,13 +107,15 @@ box()
 }
 
 #Composition
-par(mfrow=c(5,2))
+quartz()
+par(mfrow=c(5,2), mar=c(4,4,2,2))
 for(i in 1:10){
 plot(t1:t2, ET_grid[i,7,], type='l', col='darkgrey', xlab='time', ylab='mass', main=paste(" Composition Cell, x=", i), ylim=c(0,2))
 }
 
 #Age
-par(mfrow=c(5,2))
+quartz()
+par(mfrow=c(5,2), mar=c(4,4,2,2))
 for(i in 1:10){
 plot(t1:t2, ET_grid[i,6,], type='l', col='darkgrey', xlab='time', ylab='mass', main=paste(" Age Cell, x=", i), ylim=c(0,3000))
 }
