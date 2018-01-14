@@ -1,18 +1,30 @@
-setwd("/Users/lauracondon/Documents/Parflow/EcoSlim/Steady_Flux_Test")
+rm(list=ls())
+#setwd("/Users/lauracondon/Documents/Parflow/EcoSlim/Steady_Flux_Test")
+setwd("/Users/lauracondon/Documents/ParFlow/EcoSlim_Testing/SteadyFlux_test")
+###########################################################
+# Setup
+#######################################################
 runname="SLIM_flux_test"
 fluxrate=0.00125 	#flux rate in m/hr
 
+#parflow grid
 dx=1
 dy=1
 dz =0.05
 pfdt=1  #parflow timestep
+por = 0.25
 
+#EcoSLIM inputs
+t1=1
+t2=3000
+nt=t2-t1+1
 icnp=10 #particles per cell for ic from slimin.txt
 pcnp=10 #particles per evap-trans ic from slimin.txt
-
-por = 0.25
 denh20=1000
 
+###########################################################
+# Total ET analysis
+#######################################################
 #Calucate Total ET mass out based on PF flux
 ETout=fluxrate*10*pfdt*dx*dy*denh20
 
@@ -35,9 +47,11 @@ nstep=nrow(ET)
 #Get a moving average for smoothing
 window=501 #doing a centered movign average so it must be odd
 half=floor(window/2)
-ET_smooth=rep(NA,nstep)
+ET_smooth=comp_smooth=rep(NA,nstep)
+
 for(i in ceiling(window/2):(nstep-ceiling(window/2))){
 	ET_smooth[i]=mean(ET[(i-half):(i+half),5])
+	comp_smooth[i]=mean(ET[(i-half):(i+half),3])
 }
 
 #plot
@@ -49,5 +63,64 @@ lines(ET[,1], ET_smooth, col="blue", lwd=2)
 legend('topright', legend=c("PF ET Mass", "Mean Ecoslim ET Mass", "Smoothed ET"), col=c('red', 'green', 'blue'), lwd=c(2,2))
 
 quartz()
-plot(ET[,1], ET[,3], type='l', xlab="Time Step", ylab="Composition")
+plot(ET[,1], ET[,3], type='l', xlab="Time Step", ylab="Composition",col='darkgrey')
+lines(ET[,1], comp_smooth, col="blue", lwd=2)
+
+
+###########################################################
+# Gridded ET analysis
+#######################################################
+ET_loc=1:10*30  #grabbing just the top for this analysis
+nloc=length(ET_loc)
+ET_grid=array(0, dim=c(nloc, 10, nt))
+colnames(ET_grid)=c('X', 'Y', 'Z', 'ET_npart', ' ET_mass', ' ET_age', 'ET_comp', 'EvapTrans_Rate', 'Saturation', 'Porosity')
+for(i in 1:nt){
+	t=i+t1-1
+	print(c(i,t))
+	dir=paste("EcoSLIM", fluxrate, sep="")
+	fin=sprintf("./%s/%s_ET_summary.%05d.txt", dir, runname, t)
+	temp=matrix(scan(fin, skip=1), ncol=10, byrow=T)
+	ET_grid[,,i]=temp[ET_loc,]	
+}
+
+
+#desired mass per grid
+ET_PF=fluxrate*dx*dy*denh20  #ET from ParFlow EvapTrans
+rat=matrix(0, ncol=nt, nrow=nloc) #ET mass flux/ mass of flux in cell
+for(i in 1:nt){
+ rat[, i]=(ET_PF/(ET_grid[,9,i]*ET_grid[,10,i]*dx*dy*dz*denh20)) 
+}
+
+#Need to add smoothed lines onto this
+#plotting mass and storage ratios
+#Mass
+par(mfrow=c(5,2), mar=c(4,4,2,2))
+for(i in 1:10){
+plot(t1:t2, ET_grid[i,5,], type='l', col='darkgrey', xlab='time', ylab='mass', main=paste("Cell, x=", i), axes=F, ylim=c(0,6))
+axis(1)
+axis(2)
+abline(h=ET_PF, col=2, lwd=2)
+par(new=T)
+plot(t1:t2, rat[i,], type='l', col='blue', axes=F, xlab="", ylab="", ylim=c(0,5))
+axis(4, col='blue')
+box()
+}
+
+#Composition
+quartz()
+par(mfrow=c(5,2), mar=c(4,4,2,2))
+for(i in 1:10){
+plot(t1:t2, ET_grid[i,7,], type='l', col='darkgrey', xlab='time', ylab='mass', main=paste(" Composition Cell, x=", i), ylim=c(0,2))
+}
+
+#Age
+quartz()
+par(mfrow=c(5,2), mar=c(4,4,2,2))
+for(i in 1:10){
+plot(t1:t2, ET_grid[i,6,], type='l', col='darkgrey', xlab='time', ylab='mass', main=paste(" Age Cell, x=", i), ylim=c(0,3000))
+}
+
+
+#Still, need to get average particledt to evaluate the size of the threshold
+#Also need to add smoothed lines - with smoothed lines could combine into one plot too
 

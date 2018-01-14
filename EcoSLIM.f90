@@ -110,6 +110,10 @@ real*8,allocatable::Vz(:,:,:)
 real*8,allocatable::C(:,:,:,:)
         ! Concentration array, in i,j,k with l (first index) as consituent or
         ! property.  These are set by user at runtime using input
+
+!real*8,allocatable::ET_grid(:,:,:,:)
+        ! ET array, in i,j,k with l (first index) as consituent or property
+
 CHARACTER*20,allocatable:: conc_header(:)
         ! name for variables written in the C array above.  Dimensioned as l above.
 real*8,allocatable::Time_Next(:)
@@ -233,6 +237,8 @@ integer  Total_time1, Total_time2, t1, t2, IO_time_read, IO_time_write, parallel
 integer  sort_time
 !! integers for writing C or point based output
 integer ipwrite, ibinpntswrite
+! integers for writing gridded ET outputs
+integer etwrite
 
 !! IO control
 !! ipwrite controls an ASCII, .3D particle file not recommended due to poor performance
@@ -357,7 +363,8 @@ nzclm = 13+nCLMsoil ! CLM output is 13+nCLMsoil layers for different variables n
            ! layer setup)
 
 !  number of things written to C array, hard wired at 2 now for Testing
-n_constituents = 5
+!n_constituents = 5
+n_constituents = 9
 !allocate arrays
 allocate(PInLoc(np,3))
 allocate(Sx(nx,ny),Sy(nx,ny), DEM(nx,ny))
@@ -366,6 +373,7 @@ allocate(Vx(nnx,ny,nz), Vy(nx,nny,nz), Vz(nx,ny,nnz))
 allocate(Saturation(nx,ny,nz), Porosity(nx,ny,nz),EvapTrans(nx,ny,nz))
 allocate(CLMvars(nx,ny,nzclm))
 allocate(C(n_constituents,nx,ny,nz))
+!allocate(ET_grid(1,nx,ny,nz))
 allocate(conc_header(n_constituents))
 !Intialize everything to Zero
 Vx = 0.0d0
@@ -376,6 +384,7 @@ Saturation = 0.0D0
 Porosity = 0.0D0
 EvapTrans = 0.0d0
 C = 0.0d0
+!ET_grid=0.0d0
 
 ! read dx, dy as scalars
 read(10,*) dx
@@ -411,6 +420,7 @@ Out_np = 0
 !! IO control
 ipwrite = 0
 ibinpntswrite = 1
+etwrite = 1
 
 ! allocate and assign timesteps
 allocate(Time_Next(pfnt))
@@ -616,6 +626,10 @@ conc_header(2) = 'Age'
 conc_header(3) = 'Mass'
 conc_header(4) = 'Comp'
 conc_header(5) = 'Delta'
+conc_header(6) = 'ET_Npart'
+conc_header(7) = 'ET_Mass'
+conc_header(8) = 'ET_Age'
+conc_header(9) = 'ET_Comp'
 
 if(icwrite == 1)  &
 call vtk_write(Time_first,C,conc_header,nx,ny,nz,pfkk,n_constituents,Pnts,vtk_file)
@@ -905,6 +919,17 @@ do kk = 1, pfnt
                         ET_comp(itime_loc,1) = ET_comp(itime_loc,1) + P(ii,7)*P(ii,6)  !mass weighted contribution
                         !$OMP ATOMIC
                         ET_np(itime_loc) = ET_np(itime_loc) + 1   ! track number of particles
+
+                        !outputting spatially distributed ET information
+                        !$OMP Atomic
+                        C(6,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) = C(6,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) + 1 ! Number of ET particles
+                        !$OMP Atomic
+                        C(7,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) = C(7,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) +  P(ii,6) ! particle mass added to ET
+                        !$OMP Atomic
+                        C(8,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) = C(8,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) + P(ii,4)*P(ii,6)  ! mass weighted age
+                        !$OMP Atomic
+                        C(9,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) = C(9,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) + P(ii,7)*P(ii,6)  ! mass weighted contribution
+
                         !  now remove particle from domain
                             P(ii,8) = 0.0d0
                             goto 999
@@ -1003,6 +1028,26 @@ where (C(3,:,:,:)>0.0)  C(2,:,:,:) = C(2,:,:,:) / C(3,:,:,:)
 where (C(3,:,:,:)>0.0)  C(4,:,:,:) = C(4,:,:,:) / C(3,:,:,:)
 where (C(3,:,:,:)>0.0)  C(5,:,:,:) = C(5,:,:,:) / C(3,:,:,:)
 
+! normalize ET ages by mass
+where (C(7,:,:,:)>0.0)  C(8,:,:,:) = C(8,:,:,:) / C(7,:,:,:)
+where (C(7,:,:,:)>0.0)  C(9,:,:,:) = C(9,:,:,:) / C(7,:,:,:)
+
+!Write gridded ET outputs to text files
+if(etwrite == 1) then
+! open/create/write the 3D output file
+open(14,file=trim(runname)//'_ET_summary.'//trim(adjustl(filenum))//'.txt')
+write(14,*) 'X Y Z ET_npart, ET_mass, ET_age, ET_comp, EvapTrans_Rate, Saturation, Porosity'
+do i = 1, nx
+do j = 1, ny
+do k = 1, nz
+  write(14,'(3(i6), 7(e13.5))')  i, j, k, C(6,i,j,k), C(7,i,j,k), C(8,i,j,k), &
+       C(9,i,j,k), EvapTrans(i,j,k), Saturation(i,j,k), Porosity(i,j,k)
+end do
+end do
+end do
+close(14)
+end if
+
 ! write grid based values ("concentrations")
 vtk_file=trim(runname)//'_cgrid'
 if(icwrite == 1)  &
@@ -1015,6 +1060,8 @@ call vtk_write_points(P,np_active,np,pfkk,vtk_file)
 
 !! reset C
 C = 0.0D0
+!! reset ET_grid
+!!ET_grid = 0.0D0
 call system_clock(T2)
 IO_time_write = IO_time_write + (T2-T1)
 
