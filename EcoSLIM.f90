@@ -537,6 +537,7 @@ Zt(0) = 0.0D0
 do ik = 1, nz
 Z = Z + dz(ik)
 Zt(ik) = Z
+print*, Z, dz(ik), Zt(ik), ik
 end do
 maxz=Z
 
