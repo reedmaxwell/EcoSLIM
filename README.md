@@ -49,8 +49,9 @@ including/defining:
 ### Example format for this file
 
 ```
-SLIM_hillslope   ! SLIM run name, path to ParFlow files follows
+SLIM_hillslope   ! SLIM run name, path to ParFlow files follows, then DEM file 
 "/EcoSLIM/hillslope_clm/hillslope_clm"
+"ER_dem.pfb"
 20          !nx
 5           !ny
 5           !nz
@@ -62,8 +63,13 @@ SLIM_hillslope   ! SLIM run name, path to ParFlow files follows
 1.0         ! ParFlow DT
 1          ! Parflow t1: ParFlow file number to start from (initial condition is pft1-1)
 1752       ! Parflow t2: ParFlow file number to stop at
+0         ! ipwrite frequency
+0         ! ibinpntswrite frequency
+0         !  etwrite frequency
+24        ! icwrite frequency
 1.0d0       ! velocity multiplier 1.0=forward, -1.0=backward
-True        ! CLM Evap Trans
+True         ! CLM Evap Trans Read logical
+True           ! CLM Variables Read logical
 10          ! number of particles per Evap Trans IC
 1000.0      ! density H2O
 0.00000414   ! Molecular Diffusivity
