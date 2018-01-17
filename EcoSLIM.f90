@@ -1,9 +1,8 @@
 !--------------------------------------------------------------------
-! EcoSLIM is a Lagrangian, particle-tracking model for simulating
-! subsurface and surface transport of reactive (such as
-! microbial agents and metals) and non-reactive contaminants,
-! diagnosing travel times, paths etc., which integrates
-! seamlessly with ParFlow.
+! **EcoSLIM** is a Lagrangian, particle-tracking that simulates advective
+! and diffusive movement of water parcels.  This code can be used to
+! simulate age, diagnosing travel times, source water composition and
+! flowpaths.  It integrates seamlessly with **ParFlow-CLM**.
 !
 ! Developed by: Reed Maxwell-August 2016 (rmaxwell@mines.edu)
 !
@@ -168,12 +167,13 @@ integer itime_loc
         ! Local indices / counters
 integer*4 ir
 
-character*200 runname, filenum, pname, fname, vtk_file
+character*200 runname, filenum, pname, fname, vtk_file, DEMname
         ! runname = SLIM runname
         ! filenum = ParFlow file number
         ! pname = ParFlow output runname
         ! fname = Full name of a ParFlow's output
         ! vtk_file = concentration file
+        ! DEMname = DEM file name
 
 real*8 Clocx, Clocy, Clocz, Z, maxz
         ! The fractional location of each particle within it's grid cell
@@ -318,6 +318,9 @@ read(10,*) runname
 ! read ParFlow run name
 read(10,*) pname
 
+! read DEM file name
+read(10,*) DEMname
+
 ! open/create/write the output log.txt file. If doesn't exist, it's created.
 open(11,file=trim(runname)//'_log.txt')
 write(11,*) '### EcoSLIM Log File'
@@ -422,6 +425,11 @@ ipwrite = 0
 ibinpntswrite = 1
 etwrite = 1
 
+read(10,*) ipwrite
+read(10,*) ibinpntswrite
+read(10,*) etwrite
+read(10,*) icwrite
+
 ! allocate and assign timesteps
 allocate(Time_Next(pfnt))
 
@@ -434,9 +442,11 @@ Time_first = float(pft1-1)*pfdt
 ! read in velocity multiplier
 read(10,*) V_mult
 
-! read in clm flux
+! do we read in clm evap trans?
 read(10,*) clmtrans
-clmfile = .False.   !!!@RMM hard wired for test case, need to make this input
+! do we read in clm output file?
+read(10,*) clmfile
+!clmfile = .False.   !!!@RMM hard wired for test case, need to make this input
 
 ! read in IC number of particles for flux
 read(10,*) iflux_p_res
@@ -490,12 +500,19 @@ do k = 1, nz
         Zmax = Zmax + dz(k)
 end do
 
+DEM = 0.0d0
+! read in DEM
+if (DEMname /= '') then
+ fname = trim(adjustl(DEMname))
+ call pfb_read(DEM,fname,nx,ny,nz)
+end if ! DEM
+
 !! hard wire DEM  @RMM, to do, need to make this input
-do i = 1, nx
-  do j = 1, ny
-DEM(i,j) = 0.0D0 + float(i)*dx*0.05
-end do
-end do
+!do i = 1, nx
+!  do j = 1, ny
+!DEM(i,j) = 0.0D0 + float(i)*dx*0.05
+!end do
+!end do
 
 
 write(11,*)
@@ -619,7 +636,7 @@ where (C(3,:,:,:)>0.0)  C(2,:,:,:) = C(2,:,:,:) / C(3,:,:,:)
 where (C(3,:,:,:)>0.0)  C(4,:,:,:) = C(4,:,:,:) / C(3,:,:,:)
 
 !! Set up output options for VTK grid output
-icwrite = 1
+!icwrite = 1
 vtk_file=trim(runname)//'_cgrid'
 conc_header(1) = 'Concentration'
 conc_header(2) = 'Age'
@@ -631,7 +648,7 @@ conc_header(7) = 'ET_Mass'
 conc_header(8) = 'ET_Age'
 conc_header(9) = 'ET_Comp'
 
-if(icwrite == 1)  &
+if(icwrite > 0)  &
 call vtk_write(Time_first,C,conc_header,nx,ny,nz,pfkk,n_constituents,Pnts,vtk_file)
 
 !! clear out C arrays
@@ -1007,13 +1024,14 @@ do kk = 1, pfnt
 call system_clock(T1)
 
 
-!! format statements for particel output
+!! format statements for particle output
 61  FORMAT(4(e12.5))
 62  FORMAT(4(e12.5))
 
 ! write all active particles at concentration in ASCII VisIT 3D file format
 ! as noted above, this option is very slow compared to VTK binary output
-if(ipwrite == 1) then
+if(ipwrite > 0) then
+if(mod(kk,ipwrite) == 0)  then
 ! open/create/write the 3D output file
 open(14,file=trim(runname)//'_transient_particle.'//trim(adjustl(filenum))//'.3D')
 write(14,*) 'X Y Z TIME'
@@ -1021,6 +1039,7 @@ do ii = 1, np_active
 if (P(ii,8) == 1) write(14,61) P(ii,1), P(ii,2), P(ii,3), P(ii,4)
 end do
 close(14)
+end if
 end if
 
 ! normalize ages by mass
@@ -1034,6 +1053,7 @@ where (C(7,:,:,:)>0.0)  C(9,:,:,:) = C(9,:,:,:) / C(7,:,:,:)
 
 !Write gridded ET outputs to text files
 if(etwrite == 1) then
+if (mod(kk,etwrite) == 0) then
 ! open/create/write the 3D output file
 open(14,file=trim(runname)//'_ET_summary.'//trim(adjustl(filenum))//'.txt')
 write(14,*) 'X Y Z ET_npart, ET_mass, ET_age, ET_comp, EvapTrans_Rate, Saturation, Porosity'
@@ -1047,17 +1067,20 @@ end do
 end do
 close(14)
 end if
+end if
 
 ! write grid based values ("concentrations")
 vtk_file=trim(runname)//'_cgrid'
-if(icwrite == 1)  &
+if(icwrite > 0)  then
+if(mod(kk,icwrite) == 0)  &
 call vtk_write(Time_Next(kk),C,conc_header,nx,ny,nz,pfkk,n_constituents,Pnts,vtk_file)
-!print*,icwrite, kk, Time_Next(kk), conc_header,nx,ny,nz,pfkk,n_constituents,vtk_file
+end if
 ! write binary particle locations and attributes
 vtk_file=trim(runname)//'_pnts'
-if(ibinpntswrite == 1)  &
+if(ibinpntswrite > 0)  then
+if(mod(kk,ibinpntswrite) == 0)  &
 call vtk_write_points(P,np_active,np,pfkk,vtk_file)
-
+end if
 !! reset C
 C = 0.0D0
 !! reset ET_grid
