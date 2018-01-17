@@ -317,10 +317,11 @@ read(10,*) runname
 
 ! read ParFlow run name
 read(10,*) pname
+print*, pname
 
 ! read DEM file name
 read(10,*) DEMname
-
+print*, DEMname
 ! open/create/write the output log.txt file. If doesn't exist, it's created.
 open(11,file=trim(runname)//'_log.txt')
 write(11,*) '### EcoSLIM Log File'
