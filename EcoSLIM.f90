@@ -1052,7 +1052,7 @@ where (C(7,:,:,:)>0.0)  C(8,:,:,:) = C(8,:,:,:) / C(7,:,:,:)
 where (C(7,:,:,:)>0.0)  C(9,:,:,:) = C(9,:,:,:) / C(7,:,:,:)
 
 !Write gridded ET outputs to text files
-if(etwrite == 1) then
+if(etwrite > 0) then
 if (mod(kk,etwrite) == 0) then
 ! open/create/write the 3D output file
 open(14,file=trim(runname)//'_ET_summary.'//trim(adjustl(filenum))//'.txt')
