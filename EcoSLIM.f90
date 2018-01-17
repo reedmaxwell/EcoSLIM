@@ -317,11 +317,10 @@ read(10,*) runname
 
 ! read ParFlow run name
 read(10,*) pname
-print*, pname
 
 ! read DEM file name
 read(10,*) DEMname
-print*, DEMname
+
 ! open/create/write the output log.txt file. If doesn't exist, it's created.
 open(11,file=trim(runname)//'_log.txt')
 write(11,*) '### EcoSLIM Log File'
@@ -329,6 +328,8 @@ write(11,*)
 write(11,*) 'run name:',trim(runname)
 write(11,*)
 write(11,*) 'ParFlow run name:',trim(pname)
+write(11,*)
+write(11,*) 'ParFlow DEM name:',trim(DEMname)
 write(11,*)
 
 ! read domain number of cells and number of particles to be injected
@@ -421,15 +422,13 @@ Out_mass = 0.0d0
 Out_comp = 0.0d0
 Out_np = 0
 
-!! IO control
-ipwrite = 0
-ibinpntswrite = 1
-etwrite = 1
+!! IO control, each value is a timestep interval, e.g. 1= everytimestep, 2=every other, 0 = no writing
+read(10,*) ipwrite        ! controls an ASCII, .3D particle file not recommended due to poor performance
+read(10,*) ibinpntswrite  !  controls VTK, binary output of particle locations and attributes
+read(10,*) etwrite        !  controls ASCII ET output
+read(10,*) icwrite        ! controls VTK, binary grid based output where particle masses, concentrations,
+                          ! ages are mapped to a grid and written every N timesteps
 
-read(10,*) ipwrite
-read(10,*) ibinpntswrite
-read(10,*) etwrite
-read(10,*) icwrite
 
 ! allocate and assign timesteps
 allocate(Time_Next(pfnt))
