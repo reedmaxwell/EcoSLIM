@@ -135,7 +135,7 @@ real*8, allocatable::Pnts(:,:), DEM(:,:) ! DEM and grid points for concentration
 integer Ploc(3)
         ! Particle's location whithin a cell
 
-integer nx, nnx, ny, nny, nz, nnz, nz, nztemp
+integer nx, nnx, ny, nny, nz, nnz, nztemp
         ! number of cells in the domain and cells+1 in x, y, and z directions
 
 integer np_ic, np, np_active, np_active2, icwrite, jj, npnts, ncell
