@@ -135,7 +135,7 @@ real*8, allocatable::Pnts(:,:), DEM(:,:) ! DEM and grid points for concentration
 integer Ploc(3)
         ! Particle's location whithin a cell
 
-integer nx, nnx, ny, nny, nz, nnz
+integer nx, nnx, ny, nny, nz, nnz, nz, nztemp
         ! number of cells in the domain and cells+1 in x, y, and z directions
 
 integer np_ic, np, np_active, np_active2, icwrite, jj, npnts, ncell
@@ -504,7 +504,7 @@ DEM = 0.0d0
 ! read in DEM
 if (DEMname /= '') then
  fname = trim(adjustl(DEMname))
- call pfb_read(DEM,fname,nx,ny,nz)
+ call pfb_read(DEM,fname,nx,ny,nztemp)
 end if ! DEM
 
 !! hard wire DEM  @RMM, to do, need to make this input
