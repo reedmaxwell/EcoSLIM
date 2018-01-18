@@ -1092,6 +1092,7 @@ write(14,*) 'X Y Z ET_npart, ET_mass, ET_age, ET_comp, EvapTrans_Rate, Saturatio
 do i = 1, nx
 do j = 1, ny
 do k = 1, nz
+  if (EvapTrans(i,j,k) < 0.0d0)   &
   write(14,'(3(i6), 7(e13.5))')  i, j, k, C(6,i,j,k), C(7,i,j,k), C(8,i,j,k), &
        C(9,i,j,k), EvapTrans(i,j,k), Saturation(i,j,k), Porosity(i,j,k)
 end do
