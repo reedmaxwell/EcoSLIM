@@ -1,6 +1,6 @@
 SLIM_flux_test   ! SLIM run name
 "../transient0.00125/transient0.00125"
-"dem.pfb"
+""
 30    !nx
 1     !ny
 30     !nz
