@@ -225,7 +225,7 @@ real*8 denh2o, moldiff, Efract  !, ran1
 ! time history of ET, time (1,:) and mass for rain (2,:), snow (3,:),
 ! PET balance is water balance flux from PF accumulated over the domain at each
 ! timestep
-real*8, allocatable::ET_age(:,:), ET_mass(:,:), ET_comp(:,:), PET_balance(:,:)
+real*8, allocatable::ET_age(:,:), ET_comp(:,:), PET_balance(:,:), ET_mass(:)
 real*8, allocatable::Out_age(:,:), Out_mass(:,:), Out_comp(:,:)
 integer, allocatable:: ET_np(:), Out_np(:)
 
@@ -408,7 +408,7 @@ pfnt=pft2-pft1+1
 
 ! set ET DT to ParFlow one and allocate ET arrays accordingly
 ET_dt = pfdt
-allocate(ET_age(pfnt,5), ET_comp(pfnt,5), ET_mass(pfnt,5), ET_np(pfnt))
+allocate(ET_age(pfnt,5), ET_comp(pfnt,5), ET_mass(pfnt), ET_np(pfnt))
 allocate(PET_balance(pfnt,2))
 ET_age = 0.0d0
 ET_mass = 0.0d0
@@ -537,7 +537,7 @@ Zt(0) = 0.0D0
 do ik = 1, nz
 Z = Z + dz(ik)
 Zt(ik) = Z
-print*, Z, dz(ik), Zt(ik), ik
+!print*, Z, dz(ik), Zt(ik), ik
 end do
 maxz=Z
 
@@ -932,7 +932,7 @@ do kk = 1, pfnt
                         !$OMP ATOMIC
                         ET_age(itime_loc,1) = ET_age(itime_loc,1) + P(ii,4)*P(ii,6)  ! mass weighted age
                         !$OMP ATOMIC
-                        ET_mass(itime_loc,2) = ET_mass(itime_loc,2)  +  P(ii,6)  ! particle mass added to ET
+                        ET_mass(itime_loc) = ET_mass(itime_loc)  +  P(ii,6)  ! particle mass added to ET
                         !$OMP ATOMIC
                         ET_comp(itime_loc,1) = ET_comp(itime_loc,1) + P(ii,7)*P(ii,6)  !mass weighted contribution
                         !$OMP ATOMIC
@@ -1158,22 +1158,20 @@ close(13)
 !! write ET files
 !
 open(13,file=trim(runname)//'_ET_output.txt')
-write(13,*) 'TIME ET_age ET_comp ET_mass1 ET_mass2 ET_mass3 ET_Np'
+write(13,*) 'TIME ET_age ET_comp ET_mass ET_Np'
 do ii = 1, pfnt
-if (ET_mass(ii,2) > 0 ) then
-ET_age(ii,1) = ET_age(ii,1)/(ET_mass(ii,2))
-ET_comp(ii,1) = ET_comp(ii,1)/(ET_mass(ii,2))
+if (ET_mass(ii) > 0 ) then
+ET_age(ii,1) = ET_age(ii,1)/(ET_mass(ii))
+ET_comp(ii,1) = ET_comp(ii,1)/(ET_mass(ii))
 end if
-!if (ET_mass(ii,3) > 0 ) then
-!ET_mass(ii,1) = ET_mass(ii,1)/(ET_mass(ii,3))
-!end if
+
 !if (ET_np(ii) > 0 ) then
 !ET_mass(ii,1) = ET_mass(ii,:)   !/(ET_np(ii))
 !end if
 !write(13,'(6(e12.5),i12)') float(ii)*ET_dt, ET_age(ii,1), ET_comp(ii,1), &
 !                           ET_mass(ii,1), ET_mass(ii,2),ET_mass(ii,3), ET_np(ii)
-write(13,'(6(e12.5),i12)') float(ii+pft1-1)*ET_dt, ET_age(ii,1), ET_comp(ii,1), &
-                            ET_mass(ii,1), ET_mass(ii,2),ET_mass(ii,3), ET_np(ii)
+write(13,'(4(e12.5),i12)') float(ii+pft1-1)*ET_dt, ET_age(ii,1), ET_comp(ii,1), &
+                            ET_mass(ii), ET_np(ii)
 
 64  FORMAT(4(e12.5),i12)
 end do

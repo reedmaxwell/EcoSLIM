@@ -41,8 +41,8 @@ p_mass/ic_mass   #ratio of mass per precip particle to mass per ic particle
 #Read in ET outputs
 dir=paste("EcoSLIM", fluxrate, sep="")
 fin=paste("./", dir, "/", runname, "_ET_output.txt", sep="")
-ET=matrix(scan(fin , skip=1), ncol=7, byrow=T)
-colnames(ET)=c("Time", "ET_age", "ET_comp", "ET_mass1", "ET_mass2", "ET_mass3", "ET_np")
+ET=matrix(scan(fin , skip=1), ncol=5, byrow=T)
+colnames(ET)=c("Time", "ET_age", "ET_comp", "ET_mass",  "ET_np")
 nstep=nrow(ET)
 
 #Get a moving average for smoothing
@@ -51,19 +51,19 @@ half=floor(window/2)
 ET_smooth=comp_smooth=rep(NA,nstep)
 
 for(i in ceiling(window/2):(nstep-ceiling(window/2))){
-	ET_smooth[i]=mean(ET[(i-half):(i+half),5])
+	ET_smooth[i]=mean(ET[(i-half):(i+half),4])
 	comp_smooth[i]=mean(ET[(i-half):(i+half),3])
 }
 
 #plot
 #par(mfrow=c(2,1))
-plot(ET[,1], ET[,5], type='l', pch=18, xlab="Time Step", ylab="ET Mass out", col='darkgrey',  main="ET Mass", ylim=c(7,18))
+plot(ET[,1], ET[,4], type='l', pch=18, xlab="Time Step", ylab="ET Mass out", col='darkgrey',  main="ET Mass", ylim=c(7,18))
 abline(h=ETout, col=2, lwd=2)
-abline(h=mean(ET[,5]), col='green', lwd=2)
+abline(h=mean(ET[,4]), col='green', lwd=2)
 lines(ET[,1], ET_smooth, col="blue", lwd=2)
-legend('topright', legend=c(paste("PF (", ETout, ")", sep=""), paste("Mean Ecoslim (",round(mean(ET[,5]),2), ")", sep="" ), "Smoothed ET"), col=c('red', 'green', 'blue'), lwd=c(2,2))
-temp=round(mean(ET[,5]),2)
-print(mean(ET[,5])/ETout)
+legend('topright', legend=c(paste("PF (", ETout, ")", sep=""), paste("Mean Ecoslim (",round(mean(ET[,4]),2), ")", sep="" ), "Smoothed ET"), col=c('red', 'green', 'blue'), lwd=c(2,2))
+temp=round(mean(ET[,4]),2)
+print(mean(ET[,4])/ETout)
 
 quartz()
 plot(ET[,1], ET[,3], type='l', xlab="Time Step", ylab="Composition",col='darkgrey')
