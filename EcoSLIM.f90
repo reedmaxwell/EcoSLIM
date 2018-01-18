@@ -408,7 +408,7 @@ pfnt=pft2-pft1+1
 
 ! set ET DT to ParFlow one and allocate ET arrays accordingly
 ET_dt = pfdt
-allocate(ET_age(pfnt,5), ET_comp(pfnt,5), ET_mass(pfnt), ET_np(pfnt))
+allocate(ET_age(pfnt,5), ET_comp(pfnt,3), ET_mass(pfnt), ET_np(pfnt))
 allocate(PET_balance(pfnt,2))
 ET_age = 0.0d0
 ET_mass = 0.0d0
@@ -416,7 +416,7 @@ ET_comp = 0.0d0
 ET_np = 0
 PET_balance = 0.0D0
 
-allocate(Out_age(pfnt,5), Out_comp(pfnt,5), Out_mass(pfnt,5), Out_np(pfnt))
+allocate(Out_age(pfnt,5), Out_comp(pfnt,3), Out_mass(pfnt,5), Out_np(pfnt))
 Out_age = 0.0d0
 Out_mass = 0.0d0
 Out_comp = 0.0d0
@@ -841,8 +841,21 @@ do kk = 1, pfnt
                 Out_age(itime_loc,1) = Out_age(itime_loc,1) + P(ii,4)*P(ii,6)
                 !$OMP ATOMIC
                 Out_mass(itime_loc,1) = Out_mass(itime_loc,1)  + P(ii,6)
+
+                if (P(ii,7) == 1.0) then
                 !$OMP ATOMIC
-                Out_comp(itime_loc,1) = Out_comp(itime_loc,1) + P(ii,7)*P(ii,6)
+                Out_comp(itime_loc,1) = Out_comp(itime_loc,1) + P(ii,6)
+                end if
+                if (P(ii,7) == 2.0) then
+                !$OMP ATOMIC
+                Out_comp(itime_loc,2) = Out_comp(itime_loc,2) + P(ii,6)
+                end if
+                if (P(ii,7) == 3.0) then
+                !$OMP ATOMIC
+                Out_comp(itime_loc,3) = Out_comp(itime_loc,3) + P(ii,6)
+                end if
+                !Out_comp(itime_loc,1) = Out_comp(itime_loc,1) + P(ii,7)*P(ii,6)
+
                 !$OMP ATOMIC
                 Out_np(itime_loc) = Out_np(itime_loc) + 1
 
@@ -933,8 +946,21 @@ do kk = 1, pfnt
                         ET_age(itime_loc,1) = ET_age(itime_loc,1) + P(ii,4)*P(ii,6)  ! mass weighted age
                         !$OMP ATOMIC
                         ET_mass(itime_loc) = ET_mass(itime_loc)  +  P(ii,6)  ! particle mass added to ET
+
+                        !ET_comp(itime_loc,1) = ET_comp(itime_loc,1) + P(ii,7)*P(ii,6)  !mass weighted contribution
+                        if (P(ii,7) == 1.0) then
                         !$OMP ATOMIC
-                        ET_comp(itime_loc,1) = ET_comp(itime_loc,1) + P(ii,7)*P(ii,6)  !mass weighted contribution
+                        ET_comp(itime_loc,1) = ET_comp(itime_loc,1) + P(ii,6)
+                        end if
+                        if (P(ii,7) == 2.0) then
+                        !$OMP ATOMIC
+                        ET_comp(itime_loc,2) = ET_comp(itime_loc,2) + P(ii,6)
+                        end if
+                        if (P(ii,7) == 3.0) then
+                        !$OMP ATOMIC
+                        ET_comp(itime_loc,3) = ET_comp(itime_loc,3) + P(ii,6)
+                        end if
+
                         !$OMP ATOMIC
                         ET_np(itime_loc) = ET_np(itime_loc) + 1   ! track number of particles
 
@@ -1158,11 +1184,13 @@ close(13)
 !! write ET files
 !
 open(13,file=trim(runname)//'_ET_output.txt')
-write(13,*) 'TIME ET_age ET_comp ET_mass ET_Np'
+write(13,*) 'TIME ET_age ET_comp1 ET_comp2 ET_comp3 ET_mass ET_Np'
 do ii = 1, pfnt
 if (ET_mass(ii) > 0 ) then
 ET_age(ii,1) = ET_age(ii,1)/(ET_mass(ii))
 ET_comp(ii,1) = ET_comp(ii,1)/(ET_mass(ii))
+ET_comp(ii,2) = ET_comp(ii,2)/(ET_mass(ii))
+ET_comp(ii,3) = ET_comp(ii,3)/(ET_mass(ii))
 end if
 
 !if (ET_np(ii) > 0 ) then
@@ -1170,10 +1198,10 @@ end if
 !end if
 !write(13,'(6(e12.5),i12)') float(ii)*ET_dt, ET_age(ii,1), ET_comp(ii,1), &
 !                           ET_mass(ii,1), ET_mass(ii,2),ET_mass(ii,3), ET_np(ii)
-write(13,'(4(e12.5),i12)') float(ii+pft1-1)*ET_dt, ET_age(ii,1), ET_comp(ii,1), &
-                            ET_mass(ii), ET_np(ii)
+write(13,'(6(e12.5),i12)') float(ii+pft1-1)*ET_dt, ET_age(ii,1), ET_comp(ii,1), &
+                            ET_comp(ii,2), ET_comp(ii,3), ET_mass(ii), ET_np(ii)
 
-64  FORMAT(4(e12.5),i12)
+64  FORMAT(6(e12.5),i12)
 end do
 flush(13)
 ! close ET file
@@ -1182,15 +1210,18 @@ close(13)
 !! write Outflow
 !
 open(13,file=trim(runname)//'_flow_output.txt')
-write(13,*) 'TIME Out_age Out_comp Out_mass Out_NP'
+write(13,*) 'TIME Out_age Out_comp1 outcomp2 outcomp3 Out_mass Out_NP'
 do ii = 1, pfnt
 if (Out_mass(ii,1) > 0 ) then
-Out_age(ii,:) = Out_age(ii,:)/(Out_mass(ii,:))
-Out_comp(ii,:) = Out_comp(ii,:)/(Out_mass(ii,:))
+Out_age(ii,:) = Out_age(ii,:)/(Out_mass(ii,1))
+Out_comp(ii,1) = Out_comp(ii,1)/(Out_mass(ii,1))
+Out_comp(ii,2) = Out_comp(ii,2)/(Out_mass(ii,1))
+Out_comp(ii,3) = Out_comp(ii,3)/(Out_mass(ii,1))
 !Out_mass(ii,:) = Out_mass(ii,:)/(Out_mass(ii,:))
 end if
 !write(13,64) float(ii)*ET_dt, Out_age(ii,1), Out_comp(ii,1), Out_mass(ii,1), Out_np(ii)
-write(13,64) float(ii+pft1-1)*ET_dt, Out_age(ii,1), Out_comp(ii,1), Out_mass(ii,1), Out_np(ii)
+write(13,64) float(ii+pft1-1)*ET_dt, Out_age(ii,1), Out_comp(ii,1), &
+               Out_comp(ii,2), Out_comp(ii,3), Out_mass(ii,1), Out_np(ii)
 
 end do
 flush(13)
