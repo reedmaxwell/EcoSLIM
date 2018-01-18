@@ -657,7 +657,10 @@ call vtk_write(Time_first,C,conc_header,nx,ny,nz,pfkk,n_constituents,Pnts,vtk_fi
 !! clear out C arrays
 C = 0.0D0
 
-
+!! write timestep header
+write(11,*) ' **** Transient Simulation Particle Accounting ****'
+write(11,*) 'Timestep   NP_precip_input   NP_ET_output   NP_Q_output   NP_active_old   NP_filtered'
+flush(11)
 !--------------------------------------------------------------------
 ! (3) For each timestep, loop over all particles to find and
 !     update their new locations
@@ -1144,8 +1147,7 @@ end do ! particles
 call system_clock(T2)
 sort_time = sort_time + (T2-T1)
 
-  write(11,*) 'Timestep: ', kk, 'particles added due to precip:',i_added_particles,  &
-  ' np_active_old:',np_active,' current after filtering ',np_active2
+  write(11,*) kk,i_added_particles, ET_np(kk), Out_np(kk), np_active,np_active2
   flush(11)
 
 np_active = np_active2
