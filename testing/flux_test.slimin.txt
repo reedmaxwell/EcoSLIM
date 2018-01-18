@@ -1,5 +1,6 @@
 SLIM_flux_test   ! SLIM run name
 "/Users/reed/Projects/EcoSLIM/flux_hillslope/flux_hillslope"
+""
 30    !nx
 3     !ny
 30     !nz
@@ -11,8 +12,13 @@ SLIM_flux_test   ! SLIM run name
 0.10   ! ParFlow DT
 1        ! Parflow t1
 25        ! Parflow t2
+0         ! ipwrite frequency, controls an ASCII, .3D particle file not recommended due to poor performance
+1         ! ibinpntswrite frequency, controls VTK, binary output of particle locations and attributes
+1         !  etwrite frequency, controls ASCII ET output
+1        ! icwrite frequency,controls VTK, binary grid based output where particle masses, concentrations
 1.0d0       ! velocity multiplier 1.0=forward, -1.0=backward
 True           ! CLM Evap Trans
+False           ! CLM Variables Read logical
 0          ! number of particles per Evap Trans IC
 1000.0       ! density H2O
 0.00000   ! Molecular Diffusivity
