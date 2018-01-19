@@ -665,9 +665,12 @@ write(11,*) 'Timestep   NP_precip_input   NP_ET_output   NP_Q_output   NP_active
 flush(11)
 
 !! open exited partile file and write header
-open(114,file=trim(runname)//'_exited_particles.txt')
-write(114,*) 'Time X Y Z PTime Mass Comp ExitStatus'
-flush(114)
+!open(114,file=trim(runname)//'_exited_particles.txt')
+open(114,file=trim(runname)//'_exited_particles.bin', FORM='unformatted',  &
+    access='stream')
+
+!write(114,*) 'Time X Y Z PTime Mass Comp ExitStatus'
+!flush(114)
 
 !--------------------------------------------------------------------
 ! (3) For each timestep, loop over all particles to find and
@@ -919,18 +922,20 @@ do kk = 1, pfnt
                         ! calculate particle dt
                         ! check each direction independently
                         advdt = pfdt
-                        !if (Vpx /= 0.0d0) advdt(1) = dabs(dtfrac*(dx/Vpx))
-                        !if (Vpy /= 0.0d0) advdt(2) = dabs(dtfrac*(dx/Vpy))
-                        !if (Vpz /= 0.0d0) advdt(3) = dtfrac*(dz(Ploc(3)+1)/dabs(Vpz))
-                        if (Vpx > 0.0d0) advdt(1) = dabs(((1.0d0-Clocx)*dx)/Vpx)
-                        if (Vpx < 0.0d0) advdt(1) = dabs((Clocx*dx)/Vpx)
-                        if (Vpy > 0.0d0) advdt(2) = dabs(((1.0d0-Clocy)*dy)/Vpy)
-                        if (Vpy < 0.0d0) advdt(2) = dabs((Clocy*dy)/Vpy)
-                        if (Vpz > 0.0d0) advdt(3) = (((1.0d0-Clocz)*dz(Ploc(3)+1))/dabs(Vpz))
-                        if (Vpz < 0.0d0) advdt(3) = ((Clocz*dz(Ploc(3)+1))/dabs(Vpz))
+                        if (Vpx /= 0.0d0) advdt(1) = dabs(dtfrac*(dx/Vpx))
+                        if (Vpy /= 0.0d0) advdt(2) = dabs(dtfrac*(dx/Vpy))
+                        if (Vpz /= 0.0d0) advdt(3) = dtfrac*(dz(Ploc(3)+1)/dabs(Vpz))
+                        !if (Vpx > 0.0d0) advdt(1) = dabs(((1.0d0-Clocx)*dx)/Vpx)
+                        !if (Vpx < 0.0d0) advdt(1) = dabs((Clocx*dx)/Vpx)
+                        !if (Vpy > 0.0d0) advdt(2) = dabs(((1.0d0-Clocy)*dy)/Vpy)
+                        !if (Vpy < 0.0d0) advdt(2) = dabs((Clocy*dy)/Vpy)
+                        !if (Vpz > 0.0d0) advdt(3) = (((1.0d0-Clocz)*dz(Ploc(3)+1))/dabs(Vpz))
+                        !if (Vpz < 0.0d0) advdt(3) = ((Clocz*dz(Ploc(3)+1))/dabs(Vpz))
 
-                        particledt = min(advdt(1)+1.0E-5,advdt(2)+1.0E-5, advdt(3)+1.0E-5, &
-                                  pfdt*dtfrac  ,delta_time-P(ii,4)+1.0E-5)
+!                        particledt = min(advdt(1)+1.0E-5,advdt(2)+1.0E-5, advdt(3)+1.0E-5, &
+!                                  pfdt*dtfrac  ,delta_time-P(ii,4)+1.0E-5)
+                        particledt = min(advdt(1),advdt(2), advdt(3), &
+                                  pfdt*dtfrac  ,delta_time-P(ii,4))
 
                         ! calculate Flux in cell and compare it with the ET flux out of the cell
                         if (EvapTrans(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) < 0.0d0)then
@@ -1152,7 +1157,10 @@ do ii = 1, np_active
   !! check if particle is inactive
   if (P(ii,8) == 0.0) then
   ! exchange with the last particle and write out exited particles to file
-  write(114,'(6(e13.5),2(i4))') Time_Next(kk), P(ii,1), P(ii,2), P(ii,3), P(ii,4), P(ii,6), int(P(ii,7)), int(P(ii,10))
+  !write(114,'(6(e13.5),2(i4))') Time_Next(kk), P(ii,1), P(ii,2), P(ii,3), P(ii,4), P(ii,6), int(P(ii,7)), int(P(ii,10))
+  write(114) sngl(Time_Next(kk)), sngl(P(ii,1)), sngl(P(ii,2)), sngl(P(ii,3)), &
+          sngl(P(ii,4)), sngl(P(ii,6)), sngl(P(ii,7)), sngl(P(ii,10))
+
 !  !$OMP CRITICAL
   P(ii,:) = P(np_active2,:)
   np_active2 = np_active2 -1
