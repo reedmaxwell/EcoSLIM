@@ -663,6 +663,12 @@ C = 0.0D0
 write(11,*) ' **** Transient Simulation Particle Accounting ****'
 write(11,*) 'Timestep   NP_precip_input   NP_ET_output   NP_Q_output   NP_active_old   NP_filtered'
 flush(11)
+
+!! open exited partile file and write header
+open(114,file=trim(runname)//'_exited_particles.txt')
+write(114,*) 'Time X Y Z PTime Mass Comp ExitStatus'
+flush(114)
+
 !--------------------------------------------------------------------
 ! (3) For each timestep, loop over all particles to find and
 !     update their new locations
@@ -767,7 +773,7 @@ do kk = 1, pfnt
         else
         P(ii,7) = 2.d0 ! Rainfall composition
         end if
-        P(ii,8) = 1.0d0   ! make particle active 
+        P(ii,8) = 1.0d0   ! make particle active
         P(ii,9) = 1.0d0
         P(ii,10) = 0.0d0  ! Particle hasn't exited domain
 
@@ -874,6 +880,8 @@ do kk = 1, pfnt
 !                flush(21)
 !                !flag particle as inactive
                 P(ii,8) = 0.0d0
+                 !flag as exiting via Outflow
+                P(ii,10) = 1.0d0
                 goto 999
 
                 end if
@@ -985,6 +993,9 @@ do kk = 1, pfnt
 
                         !  now remove particle from domain
                             P(ii,8) = 0.0d0
+                            !flag as exiting via ET
+                           P(ii,10) = 2.0d0
+
                             goto 999
                         end if
                         end if
@@ -1126,6 +1137,9 @@ call system_clock(T2)
 IO_time_write = IO_time_write + (T2-T1)
 
 call system_clock(T1)
+! open exited particle file
+!open(114,file=trim(runname)//'_exited_particle.'//trim(adjustl(filenum))//'.txt')
+!write(114,*) 'TIMESTEP X Y Z PTIME COMP MASS ExitSTATUS'
 !! sort particles to move inactive ones to the end and active ones up
 np_active2 = np_active
 
@@ -1138,6 +1152,7 @@ do ii = 1, np_active
   !! check if particle is inactive
   if (P(ii,8) == 0.0) then
   ! exchange with the last particle and write out exited particles to file
+  write(114,'(6(e13.5),2(i4))') Time_Next(kk), P(ii,1), P(ii,2), P(ii,3), P(ii,4), P(ii,6), int(P(ii,7)), int(P(ii,10))
 !  !$OMP CRITICAL
   P(ii,:) = P(np_active2,:)
   np_active2 = np_active2 -1
@@ -1148,7 +1163,8 @@ do ii = 1, np_active
 end do ! particles
 ! !$OMP END DO NOWAIT
 ! !$OMP END PARALLEL
-
+flush(114)
+!close(114)
 call system_clock(T2)
 sort_time = sort_time + (T2-T1)
 
@@ -1182,6 +1198,8 @@ flush(13)
 ! close end particle file
 close(13)
 
+! close output file
+close(114)
 
 ! Create/open/write the final particles' locations and residence time
 open(13,file=trim(runname)//'_endparticle.3D')
@@ -1253,6 +1271,7 @@ flush(13)
 close(13)
 call system_clock(T2)
 IO_time_write = IO_time_write + (T2-T1)
+
 
 
         call system_clock(Total_time2)
