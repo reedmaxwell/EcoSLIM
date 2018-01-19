@@ -92,6 +92,7 @@ real*8,allocatable::P(:,:)
         ! P(np,7) = Particle source (1=IC, 2=rain, 3=snowmelt...)
         ! P(np,8) = Particle Status (1=active, 0=inactive)
         ! P(np,9) = concentration
+        ! P(np,10) = Exit status (1=outflow, 2=ET...)
 
 !@ RMM, why is this needed?
 real*8,allocatable::PInLoc(:,:)
@@ -356,8 +357,9 @@ write(11,*) 'np:',np
 
 ! allocate P, Sx, dz, Vx, Vy, Vz, Saturation, and Porosity arrays
 allocate(P(np,10))
-P(1:np,1:6) = 0    ! clear out all particle attributes
+P(1:np,1:6) = 0.0    ! clear out all particle attributes
 P(1:np,7:9) = 1.0  ! make all particles active to start with and original from 1 = GW/IC
+P(1:np,10) = 0.0   ! no exit
 
 ! grid +1 variables
 nnx=nx+1
@@ -765,7 +767,9 @@ do kk = 1, pfnt
         else
         P(ii,7) = 2.d0 ! Rainfall composition
         end if
+        P(ii,8) = 1.0d0   ! make particle active 
         P(ii,9) = 1.0d0
+        P(ii,10) = 0.0d0  ! Particle hasn't exited domain
 
         else
         write(11,*) ' **Warning rainfall input but no paricles left'
@@ -1133,7 +1137,7 @@ np_active2 = np_active
 do ii = 1, np_active
   !! check if particle is inactive
   if (P(ii,8) == 0.0) then
-  ! exchange with the last particle
+  ! exchange with the last particle and write out exited particles to file
 !  !$OMP CRITICAL
   P(ii,:) = P(np_active2,:)
   np_active2 = np_active2 -1
