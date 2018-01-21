@@ -667,7 +667,7 @@ C = 0.0D0
 
 !! write timestep header
 write(11,*) ' **** Transient Simulation Particle Accounting ****'
-write(11,*) 'Timestep Mean_Age NP_precip_input NP_ET_output NP_Q_output NP_active_old  NP_filtered'
+write(11,*) 'Timestep Time Mean_Age NP_precip_input NP_ET_output NP_Q_output NP_active_old  NP_filtered'
 flush(11)
 
 !! open exited partile file and write header
@@ -1188,7 +1188,8 @@ flush(114)
 call system_clock(T2)
 sort_time = sort_time + (T2-T1)
 
-  write(11,*) kk, mean_age / float(np_active2) , i_added_particles, ET_np(kk), Out_np(kk), np_active,np_active2
+  write(11,'(i10,2(f12.5),3(i8),2(i12))') kk, Time_Next(kk), mean_age / float(np_active2) , i_added_particles,  &
+                                          ET_np(kk), Out_np(kk), np_active,np_active2
   flush(11)
 
 np_active = np_active2
