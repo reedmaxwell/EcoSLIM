@@ -212,8 +212,8 @@ real*8 particledt, delta_time
         ! one location to another and the local particle from-to time
         ! for each PF timestep
 
-real*8  mean_age
-        ! mean age of all particles in domain
+real*8  mean_age, mean_comp, mean_mass, total_mass
+        ! mean age and composition and mass of all particles in domain
 
 real*8 local_flux, et_flux, water_vol, Zr, z1, z2, z3
         ! The local cell flux convergence
@@ -666,8 +666,12 @@ call vtk_write(Time_first,C,conc_header,nx,ny,nz,pfkk,n_constituents,Pnts,vtk_fi
 C = 0.0D0
 
 !! write timestep header
+write(11,*)
+write(11,*)
 write(11,*) ' **** Transient Simulation Particle Accounting ****'
-write(11,*) 'Timestep Time Mean_Age NP_precip_input NP_ET_output NP_Q_output NP_active_old  NP_filtered'
+write(11,*) ' Timestep       Time     Mean_Age    Mean_Comp   Mean_Mass  Total_Mass    PrecipIn    ETOut  &
+              NP_PrecipIn NP_ETOut &
+             NP_QOut NP_active_old NP_filtered'
 flush(11)
 
 !! open exited partile file and write header
@@ -1158,6 +1162,10 @@ np_active2 = np_active
 ! !$OMP& Default(none)
 !
 mean_age = 0.0d0
+mean_comp = 0.0d0
+total_mass = 0.0D0
+mean_mass = 0.0d0
+
 ! ! loop over active particles
 ! !$OMP DO
 do ii = 1, np_active
@@ -1176,8 +1184,10 @@ do ii = 1, np_active
   np_active2 = np_active2 -1
 !  !$OMP END CRITICAL
   end if
-! increment mean age
-mean_age = mean_age + P(ii,4)
+! increment mean age, composition and mass
+mean_age = mean_age + P(ii,4)*P(ii,6)
+mean_comp = mean_comp + P(ii,7)*P(ii,6)
+total_mass = total_mass + P(ii,6)
   ! if we have looped all the way through our active particles exit
   if (ii > np_active2) exit
 end do ! particles
@@ -1188,7 +1198,17 @@ flush(114)
 call system_clock(T2)
 sort_time = sort_time + (T2-T1)
 
-  write(11,'(i10,2(f12.5),3(i8),2(i12))') kk, Time_Next(kk), mean_age / float(np_active2) , i_added_particles,  &
+! check if we have any active particles
+if (total_mass > 0.0d0)  then
+  mean_age =  mean_age / total_mass
+  mean_comp = mean_comp / total_mass
+  mean_mass = total_mass / float(np_active2)
+end if
+
+! write out summary of mass, age, particles for this timestep
+  write(11,'(i10,7(f12.5),3(i8),2(i12))') kk, Time_Next(kk), mean_age , mean_comp, mean_mass, &
+                                          total_mass,  PET_balance(kk,1), PET_balance(kk,2), &
+                                          i_added_particles,  &
                                           ET_np(kk), Out_np(kk), np_active,np_active2
   flush(11)
 
