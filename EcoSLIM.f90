@@ -335,26 +335,40 @@ write(11,*) 'run name:',trim(runname)
 write(11,*)
 write(11,*) 'ParFlow run name:',trim(pname)
 write(11,*)
+if (DEMname /= '') then
 write(11,*) 'ParFlow DEM name:',trim(DEMname)
+else
+write(11,*) 'Not reading ParFlow DEM'
+end if
 write(11,*)
 
 ! read domain number of cells and number of particles to be injected
 read(10,*) nx
 read(10,*) ny
 read(10,*) nz
+! read in number of particles for IC (if np_ic = -1 then restart from a file)
 read(10,*) np_ic
+
+! read in the number of particles total
 read(10,*) np
 
+! check to make sure we don't assign more particles for IC than we have allocated
+! in total
 if (np_ic > np) then
 write(11,*) ' warning NP_IC greater than IC'
 np = np_ic
 end if
 
 ! write nx, ny, nz, and np in the log file
+write(11,*) ' Grid information'
 write(11,*) 'nx:',nx
 write(11,*) 'ny:',ny
 write(11,*) 'nz:',nz
+write(11,*)
+write(11,*) ' Particle IC Information'
 write(11,*) 'np IC:',np_ic
+if (np_ic == -1) &
+write(11,*)  'Reading particle restart file:',trim(runname)//'_particle_restart.bin'
 write(11,*) 'np:',np
 
 
@@ -432,7 +446,7 @@ Out_np = 0
 ! clear out output particles
 npout = 0
 
-!! IO control, each value is a timestep interval, e.g. 1= everytimestep, 2=every other, 0 = no writing
+!! IO control, each value is a timestep interval, e.g. 1= every timestep, 2=every other, 0 = no writing
 read(10,*) ipwrite        ! controls an ASCII, .3D particle file not recommended due to poor performance
 read(10,*) ibinpntswrite  !  controls VTK, binary output of particle locations and attributes
 read(10,*) etwrite        !  controls ASCII ET output
@@ -475,9 +489,13 @@ read(10,*) moldiff
 read(10,*) dtfrac
 
 !wite out log file
+write(11,*)
+write(11,*) ' Grid Dimensions'
 write(11,'("dx:",e12.5)') dx
 write(11,'("dy:",e12.5)') dy
 write(11,'("dz:",*(e12.5,", "))') dz(1:nz)
+write(11,*)
+write(11,*) 'Timestepping Information'
 write(11,'("ParFlow delta-T, pfdt:",e12.5)') pfdt
 write(11,'("ParFlow timesteps, pfnt:",i12)') pfnt
 write(11,'("ParFlow start step, pft1:",i12)') pft1
@@ -486,10 +504,13 @@ write(11,'("ParFlow end step, pft2:",i12)') pft2
 write(11,*)
 write(11,*) 'V mult: ',V_mult,' for forward/backward particle tracking'
 write(11,*) 'CLM Trans: ',clmtrans,' adds / removes particles based on LSM fluxes'
+write(11,*)
+write(11,*) 'Physical Constants'
 write(11,*) 'denh2o: ',denh2o,' M/L^3'
 write(11,*) 'Molecular Diffusivity: ',moldiff,' '
-write(11,*) 'Fractionation: ',Efract,' '
-
+!write(11,*) 'Fractionation: ',Efract,' '
+write(11,*)
+write(11,*) 'Numerical Stability Information'
 write(11,'("dtfrac: ",e12.5," fraction of dx/Vx")') dtfrac
 
 ! end of SLIM input
@@ -591,6 +612,8 @@ fname=trim(adjustl(pname))//'.out.satur.'//trim(adjustl(filenum))//'.pfb'
 call pfb_read(Saturation,fname,nx,ny,nz)
 
 !! Define initial particles' locations and mass
+!!
+if (np_ic > 0)  then
 np_active = 0
 
 PInLoc=0.0d0
@@ -639,6 +662,26 @@ end if
 end do ! i
 end do ! j
 end do ! k
+
+!! if np_ic = -1 then we read a restart file
+elseif (np_ic == -1) then
+  ! read in full particle array as binary restart file, should name change?,
+  ! potential overwrite confusion
+  open(116,file=trim(runname)//'_particle_restart.bin', FORM='unformatted',  &
+      access='stream')
+  read(116) np_active
+  if (np_active < np) then   ! check if we have particles left
+  !do ii = 1, np_active
+            read(116)  P(1:np_active,1:10)
+  !end do !11
+  close(116)
+  else
+    write(11,*) ' **Warning restart IC input but no paricles left'
+    write(11,*) ' **Exiting code *not* (over)writing restart '
+  close(116)
+    stop
+  end if
+end if
 flush(11)
 
 ! Write out intial concentrations
@@ -1183,11 +1226,12 @@ do ii = 1, np_active
   P(ii,:) = P(np_active2,:)
   np_active2 = np_active2 -1
 !  !$OMP END CRITICAL
-  end if
+else
 ! increment mean age, composition and mass
 mean_age = mean_age + P(ii,4)*P(ii,6)
 mean_comp = mean_comp + P(ii,7)*P(ii,6)
 total_mass = total_mass + P(ii,6)
+end if
   ! if we have looped all the way through our active particles exit
   if (ii > np_active2) exit
 end do ! particles
@@ -1227,31 +1271,42 @@ end do !! timesteps
                !!  re-run the simulation)
 
 call system_clock(T1)
-! Create/open/write the final particles' locations and residence time, should make this binary and
+! Create/open/write the final particles' locations and residence time, @RMM, updated to make this binary and
 ! make this contain ALL particle attributes to act as a restart file
-open(13,file=trim(runname)//'_endparticle.txt')
-write(13,*) 'NP X Y Z TIME'
-do ii = 1, np_active
-        write(13,63) ii, P(ii,1), P(ii,2), P(ii,3), P(ii,4), P(ii,5), P(ii,6), PInLoc(ii,1), PInLoc(ii,2), PInLoc(ii,3)
-        63  FORMAT(i10,9(e12.5))
-end do
-flush(13)
-! close end particle file
-close(13)
+!open(13,file=trim(runname)//'_endparticle.txt')
+!write(13,*) 'NP X Y Z TIME'
+!do ii = 1, np_active
+!        write(13,63) ii, P(ii,1), P(ii,2), P(ii,3), P(ii,4), P(ii,5), P(ii,6), PInLoc(ii,1), PInLoc(ii,2), PInLoc(ii,3)
+!        63  FORMAT(i10,9(e12.5))
+!end do
+!flush(13)
+!! close end particle file
+!close(13)
+
+! Write out full particle array as binary restart file
+open(116,file=trim(runname)//'_particle_restart.bin', FORM='unformatted',  &
+    access='stream')
+write(116) np_active
+!do ii = 1, np_active
+          write(116)  P(1:np_active,1:10)
+!end do !11
+close(116)
 
 ! close output file
 close(114)
 
 ! Create/open/write the final particles' locations and residence time
-open(13,file=trim(runname)//'_endparticle.3D')
-write(13,*) 'X Y Z TIME'
-do ii = 1, np_active
-        write(13,65)  P(ii,1), P(ii,2), P(ii,3), P(ii,4)
-        65  FORMAT(4(e12.5))
-end do
-flush(13)
-! close end particle file
-close(13)
+! @RMM, superceded by option for 3D file each timestep, this file
+! should be the same as the last 3D file written
+!open(13,file=trim(runname)//'_endparticle.3D')
+!write(13,*) 'X Y Z TIME'
+!do ii = 1, np_active
+!        write(13,65)  P(ii,1), P(ii,2), P(ii,3), P(ii,4)
+!        65  FORMAT(4(e12.5))
+!end do
+!flush(13)
+!! close end particle file
+!close(13)
 !! write ET files
 !
 open(13,file=trim(runname)//'_ET_output.txt')
@@ -1317,10 +1372,12 @@ IO_time_write = IO_time_write + (T2-T1)
 
         call system_clock(Total_time2)
 
-        Write(11,*) 'Execution Finished.'
+        Write(11,*)
+        Write(11,*) '###  Execution Finished'
         write(11,*)
         write(11,*) npout,' particles exited the domain via outflow or ET.'
         write(11,*)
+        Write(11,*) 'Simulation Timing and Profiling:'
         Write(11,'("Total Execution Time (s):",e12.5)') float(Total_time2-Total_time1)/1000.
         Write(11,'("File IO Time Read (s):",e12.5)')float(IO_time_read)/1000.
         Write(11,'("File IO Time Write (s):",e12.5)') float(IO_time_write)/1000.
