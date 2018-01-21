@@ -139,7 +139,7 @@ integer Ploc(3)
 integer nx, nnx, ny, nny, nz, nnz, nztemp
         ! number of cells in the domain and cells+1 in x, y, and z directions
 
-integer np_ic, np, np_active, np_active2, icwrite, jj, npnts, ncell
+integer np_ic, np, np_active, np_active2, icwrite, jj, npnts, ncell, npout
         ! number of particles for intial pulse IC, total, and running active
 
 integer nt, n_constituents
@@ -211,6 +211,9 @@ real*8 particledt, delta_time
         ! The time it takes for a particle to displace from
         ! one location to another and the local particle from-to time
         ! for each PF timestep
+
+real*8  mean_age
+        ! mean age of all particles in domain
 
 real*8 local_flux, et_flux, water_vol, Zr, z1, z2, z3
         ! The local cell flux convergence
@@ -425,6 +428,9 @@ Out_age = 0.0d0
 Out_mass = 0.0d0
 Out_comp = 0.0d0
 Out_np = 0
+
+! clear out output particles
+npout = 0
 
 !! IO control, each value is a timestep interval, e.g. 1= everytimestep, 2=every other, 0 = no writing
 read(10,*) ipwrite        ! controls an ASCII, .3D particle file not recommended due to poor performance
@@ -661,7 +667,7 @@ C = 0.0D0
 
 !! write timestep header
 write(11,*) ' **** Transient Simulation Particle Accounting ****'
-write(11,*) 'Timestep   NP_precip_input   NP_ET_output   NP_Q_output   NP_active_old   NP_filtered'
+write(11,*) 'Timestep Mean_Age NP_precip_input NP_ET_output NP_Q_output NP_active_old  NP_filtered'
 flush(11)
 
 !! open exited partile file and write header
@@ -1151,6 +1157,7 @@ np_active2 = np_active
 ! !$OMP PARALLEL SHARED(P, np_active, np_active2) &
 ! !$OMP& Default(none)
 !
+mean_age = 0.0d0
 ! ! loop over active particles
 ! !$OMP DO
 do ii = 1, np_active
@@ -1158,14 +1165,19 @@ do ii = 1, np_active
   if (P(ii,8) == 0.0) then
   ! exchange with the last particle and write out exited particles to file
   !write(114,'(6(e13.5),2(i4))') Time_Next(kk), P(ii,1), P(ii,2), P(ii,3), P(ii,4), P(ii,6), int(P(ii,7)), int(P(ii,10))
-  write(114) sngl(Time_Next(kk)), sngl(P(ii,1)), sngl(P(ii,2)), sngl(P(ii,3)), &
-          sngl(P(ii,4)), sngl(P(ii,6)), sngl(P(ii,7)), sngl(P(ii,10))
+  !write(114) sngl(Time_Next(kk)), sngl(P(ii,1)), sngl(P(ii,2)), sngl(P(ii,3)), &
+  !        sngl(P(ii,4)), sngl(P(ii,6)), sngl(P(ii,7)), sngl(P(ii,10))
+          write(114) Time_Next(kk), P(ii,1), P(ii,2), P(ii,3), &
+                  P(ii,4), P(ii,6), P(ii,7), P(ii,10)
+          npout = npout + 1
 
 !  !$OMP CRITICAL
   P(ii,:) = P(np_active2,:)
   np_active2 = np_active2 -1
 !  !$OMP END CRITICAL
   end if
+! increment mean age
+mean_age = mean_age + P(ii,4)
   ! if we have looped all the way through our active particles exit
   if (ii > np_active2) exit
 end do ! particles
@@ -1176,7 +1188,7 @@ flush(114)
 call system_clock(T2)
 sort_time = sort_time + (T2-T1)
 
-  write(11,*) kk,i_added_particles, ET_np(kk), Out_np(kk), np_active,np_active2
+  write(11,*) kk, mean_age / float(np_active2) , i_added_particles, ET_np(kk), Out_np(kk), np_active,np_active2
   flush(11)
 
 np_active = np_active2
@@ -1285,6 +1297,8 @@ IO_time_write = IO_time_write + (T2-T1)
         call system_clock(Total_time2)
 
         Write(11,*) 'Execution Finished.'
+        write(11,*)
+        write(11,*) npout,' particles exited the domain via outflow or ET.'
         write(11,*)
         Write(11,'("Total Execution Time (s):",e12.5)') float(Total_time2-Total_time1)/1000.
         Write(11,'("File IO Time Read (s):",e12.5)')float(IO_time_read)/1000.
