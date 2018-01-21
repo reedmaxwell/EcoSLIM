@@ -55,7 +55,7 @@ SLIM_hillslope   ! SLIM run name, path to ParFlow files follows, then DEM file
 20          !nx
 5           !ny
 5           !nz
-20          !particles per cell at start of simulation
+20          !particles per cell at start of simulation (-1 = use restart file)
 11000000    !np Total
 5.0         !dx
 0.2         !dy, dz follows
@@ -63,6 +63,7 @@ SLIM_hillslope   ! SLIM run name, path to ParFlow files follows, then DEM file
 1.0         ! ParFlow DT
 1          ! Parflow t1: ParFlow file number to start from (initial condition is pft1-1)
 1752       ! Parflow t2: ParFlow file number to stop at
+2          ! Time Sequence Repeat [n_cycle*(pft2-pft1)]
 0         ! ipwrite frequency, controls an ASCII, .3D particle file not recommended due to poor performance
 0         ! ibinpntswrite frequency, controls VTK, binary output of particle locations and attributes
 0         !  etwrite frequency, controls ASCII ET output

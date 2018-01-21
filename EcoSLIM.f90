@@ -149,8 +149,9 @@ real*8  pfdt, advdt(3)
         ! ParFlow timestep value, advection timestep for each direction
         ! for each individual particle step; used to chose optimal particle timestep
 
-integer pft1, pft2, pfnt
+integer pft1, pft2, pfnt, n_cycle
         ! parflow start and stop file numbers number of ParFlow timesteps
+        ! number of timestep cycles
 
 real*8  Time_first
         ! initial timestep for Parflow ((pft1-1)*pfdt)
@@ -425,7 +426,9 @@ read(10,*) pfdt
 ! read in parflow start and stop times
 read(10,*) pft1
 read(10,*) pft2
-pfnt=pft2-pft1+1
+read(10,*) n_cycle
+
+pfnt=n_cycle*(pft2-pft1+1)
 
 ! set ET DT to ParFlow one and allocate ET arrays accordingly
 ET_dt = pfdt
@@ -712,7 +715,7 @@ C = 0.0D0
 write(11,*)
 write(11,*)
 write(11,*) ' **** Transient Simulation Particle Accounting ****'
-write(11,*) ' Timestep       Time     Mean_Age    Mean_Comp   Mean_Mass  Total_Mass    PrecipIn    ETOut  &
+write(11,*) ' Timestep PFTimestep    Time     Mean_Age    Mean_Comp   Mean_Mass  Total_Mass    PrecipIn    ETOut  &
               NP_PrecipIn NP_ETOut &
              NP_QOut NP_active_old NP_filtered'
 flush(11)
@@ -733,6 +736,8 @@ open(114,file=trim(runname)//'_exited_particles.bin', FORM='unformatted',  &
 pfkk = pft1 - 1
 do kk = 1, pfnt
 
+!! reset ParFlow counter for cycles
+if (mod(kk,(pft2-pft1+2)) == 0 )  pfkk = pft1 - 1
         call system_clock(T1)
         !adust the file counters
         pfkk = pfkk + 1
@@ -1250,7 +1255,7 @@ if (total_mass > 0.0d0)  then
 end if
 
 ! write out summary of mass, age, particles for this timestep
-  write(11,'(i10,7(f12.5),3(i8),2(i12))') kk, Time_Next(kk), mean_age , mean_comp, mean_mass, &
+  write(11,'(2(i10),7(f12.5),3(i8),2(i12))') kk, pfkk, Time_Next(kk), mean_age , mean_comp, mean_mass, &
                                           total_mass,  PET_balance(kk,1), PET_balance(kk,2), &
                                           i_added_particles,  &
                                           ET_np(kk), Out_np(kk), np_active,np_active2
@@ -1258,7 +1263,7 @@ end if
 
 np_active = np_active2
 
-end do !! timesteps
+end do !! timesteps and cycles
 
 ! Close 3D file
 !close(12)
