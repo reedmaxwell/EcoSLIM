@@ -503,6 +503,8 @@ write(11,'("ParFlow delta-T, pfdt:",e12.5)') pfdt
 write(11,'("ParFlow timesteps, pfnt:",i12)') pfnt
 write(11,'("ParFlow start step, pft1:",i12)') pft1
 write(11,'("ParFlow end step, pft2:",i12)') pft2
+write(11,'("Time loops, cycles, n_cycle:",i12)') n_cycle
+write(11,'("Total time steps:",i12)') pfnt
 
 write(11,*)
 write(11,*) 'V mult: ',V_mult,' for forward/backward particle tracking'
@@ -667,7 +669,8 @@ end do ! j
 end do ! k
 
 !! if np_ic = -1 then we read a restart file
-elseif (np_ic == -1) then
+else if (np_ic == -1) then
+  write(11,*) 'Reading particle restart File:',trim(runname)//'_particle_restart.bin'
   ! read in full particle array as binary restart file, should name change?,
   ! potential overwrite confusion
   open(116,file=trim(runname)//'_particle_restart.bin', FORM='unformatted',  &
