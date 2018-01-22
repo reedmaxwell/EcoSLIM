@@ -14,13 +14,15 @@
 !    You should have received a copy of the GNU General Public License
 !    along with SLIM-Fast in /src/gpl.txt.  If not, see <http://www.gnu.org/licenses/>.
 
-SUBROUTINE vtk_write_points(P,np_active, np,icycle,vtk_file, dx, dy,maxZ, dem)
+SUBROUTINE vtk_write_points(P,np_active, np,icycle,vtk_file, dx, dy,nx,ny,maxZ, dem)
 REAL*8                 :: P(:,:)
 INTEGER                :: icycle
 INTEGER*4              :: np_active
 INTEGER*4              :: np
 REAL*8                 :: dx
 REAL*8                 :: dy
+INTEGER*4              :: nx
+INTEGER*4              :: ny
 REAL*8                 :: maxZ
 REAL*8                 :: DEM(:,:)
 CHARACTER (LEN=200)    :: vtk_file
@@ -29,7 +31,7 @@ INTEGER*4 i,j,k, ijk, debug,l, nxyz,nxyzp1,Px, Py
 CHARACTER*1 lf
 CHARACTER*12 num1, num2, num3
 CHARACTER*8 ctime
-real*8 number,X,Clocx, Clocy
+real*8 number,X,Clocx, Clocy, Dxl, Dxu, Dyl, Dyu
 
 debug = 0
 !
@@ -58,13 +60,19 @@ do j =1, np_active
   ! Find each particle's factional cell location
   Clocx = (P(j,1) - float(Px)*dx)  / dx
   Clocy = (P(j,2) - float(Py)*dy)  / dy
-  ! X = local adjustment for DEM
-  ! ## need to debug smoothing
-  X = ( ((1.0d0-Clocx)*DEM(Px+1,Py+1) &
-        + DEM(Px+2,Py+1)*Clocx)  +    &
-       ((1.0d0-Clocy)*DEM(Px+1,Py+1) &
-                + DEM(Px+1,Py+2)*Clocy) ) / 2.0D0
-   if ((DEM(Px+2,Py+1)==0).or.(DEM(Px+1,Py+2) == 0.0)) X = DEM(Px+1,Py+1)
+  ! X is local adjustment for DEM
+  ! linearly interpolate particle location in DEM cell
+  Dxl = DEM(Px+1,Py+1)
+  Dxu = DEM(Px+2,Py+1)
+  Dyl = DEM(Px+1,Py+1)
+  Dyu = DEM(Px+1,Py+2)
+  ! correct for edges
+  if (Px == nx -1) Dxu = Dxl
+  if (Py == ny -1) Dyu = Dyl
+  X = ( ((1.0d0-Clocx)*Dxl &
+        + Dxu*Clocx)  +    &
+       ((1.0d0-Clocy)*Dyl &
+                + Dyu*Clocy) ) / 2.0D0
   ! write new location
   write(15) real(P(j,3)+X -maxZ,kind=4)
 end do !!j

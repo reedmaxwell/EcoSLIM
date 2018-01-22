@@ -283,7 +283,7 @@ interface
   CHARACTER (LEN=200)    :: vtk_file
 end subroutine vtk_write
 
-SUBROUTINE vtk_write_points(P,np_active, np,icycle,vtk_file,dx,dy,maxZ,DEM)
+SUBROUTINE vtk_write_points(P,np_active, np,icycle,vtk_file,dx,dy,nx,ny,maxZ,DEM)
 REAL*8    :: P(:,:)
 INTEGER                :: icycle
 INTEGER*4              :: np_active
@@ -291,6 +291,8 @@ INTEGER*4              :: np
 INTEGER                :: n_constituents
 REAL*8                 :: dx
 REAL*8                 :: dy
+INTEGER*4              :: nx
+INTEGER*4              :: ny
 REAL*8                 :: maxZ
 REAL*8                 :: DEM(:,:)
 CHARACTER (LEN=200)    :: vtk_file
@@ -1213,7 +1215,7 @@ end if
 vtk_file=trim(runname)//'_pnts'
 if(ibinpntswrite > 0)  then
 if(mod(kk,ibinpntswrite) == 0)  &
-call vtk_write_points(P,np_active,np,outkk,vtk_file, dx, dy, maxZ,dem)
+call vtk_write_points(P,np_active,np,outkk,vtk_file, dx, dy,nx,ny, maxZ,dem)
 end if
 !! reset C
 C = 0.0D0
