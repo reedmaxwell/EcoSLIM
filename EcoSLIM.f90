@@ -149,8 +149,9 @@ real*8  pfdt, advdt(3)
         ! ParFlow timestep value, advection timestep for each direction
         ! for each individual particle step; used to chose optimal particle timestep
 
-integer pft1, pft2, pfnt, n_cycle
+integer pft1, pft2, tout1, pfnt, n_cycle
         ! parflow start and stop file numbers number of ParFlow timesteps
+        ! flag specifying the number for the first output write (0= start with pft1)
         ! number of timestep cycles
 
 real*8  Time_first
@@ -158,8 +159,10 @@ real*8  Time_first
 
 integer kk
         ! Loop counter for the time steps (pfnt)
-integer pfkk
+integer pfkk, outkk
        ! Counter for the file numbers starts at pft1
+       ! Counter for the output writing
+
 integer ii
         ! Loop counter for the number of particles (np)
 integer iflux_p_res, i_added_particles
@@ -171,9 +174,10 @@ integer itime_loc
         ! Local indices / counters
 integer*4 ir
 
-character*200 runname, filenum, pname, fname, vtk_file, DEMname
+character*200 runname, filenum, filenumout, pname, fname, vtk_file, DEMname
         ! runname = SLIM runname
         ! filenum = ParFlow file number
+        ! filenumout = File number for Ecoslim writing
         ! pname = ParFlow output runname
         ! fname = Full name of a ParFlow's output
         ! vtk_file = concentration file
@@ -426,9 +430,16 @@ read(10,*) pfdt
 ! read in parflow start and stop times
 read(10,*) pft1
 read(10,*) pft2
+read(10,*) tout1
 read(10,*) n_cycle
 
 pfnt=n_cycle*(pft2-pft1+1)
+
+if (tout1 == 0) then
+   outkk = pft1
+else
+  outkk = tout1
+end if
 
 ! set ET DT to ParFlow one and allocate ET arrays accordingly
 ET_dt = pfdt
@@ -709,7 +720,7 @@ conc_header(8) = 'ET_Age'
 conc_header(9) = 'ET_Comp'
 
 if(icwrite > 0)  &
-call vtk_write(Time_first,C,conc_header,nx,ny,nz,pfkk,n_constituents,Pnts,vtk_file)
+call vtk_write(Time_first,C,conc_header,nx,ny,nz,0,n_constituents,Pnts,vtk_file)
 
 !! clear out C arrays
 C = 0.0D0
@@ -737,6 +748,7 @@ open(114,file=trim(runname)//'_exited_particles.bin', FORM='unformatted',  &
 !--------------------------------------------------------------------
 ! loop over timesteps
 pfkk = pft1 - 1
+outkk = outkk - 1
 do kk = 1, pfnt
 
 !! reset ParFlow counter for cycles
@@ -744,6 +756,7 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
         call system_clock(T1)
         !adust the file counters
         pfkk = pfkk + 1
+        outkk = outkk + 1
         !print*, pfkk
 
         ! Read the velocities computed by ParFlow
@@ -1141,12 +1154,14 @@ call system_clock(T1)
 61  FORMAT(4(e12.5))
 62  FORMAT(4(e12.5))
 
+write(filenumout,'(i5.5)') outkk
+
 ! write all active particles at concentration in ASCII VisIT 3D file format
 ! as noted above, this option is very slow compared to VTK binary output
 if(ipwrite > 0) then
 if(mod(kk,ipwrite) == 0)  then
 ! open/create/write the 3D output file
-open(14,file=trim(runname)//'_transient_particle.'//trim(adjustl(filenum))//'.3D')
+open(14,file=trim(runname)//'_transient_particle.'//trim(adjustl(filenumout))//'.3D')
 write(14,*) 'X Y Z TIME'
 do ii = 1, np_active
 if (P(ii,8) == 1) write(14,61) P(ii,1), P(ii,2), P(ii,3), P(ii,4)
@@ -1168,7 +1183,7 @@ where (C(7,:,:,:)>0.0)  C(9,:,:,:) = C(9,:,:,:) / C(7,:,:,:)
 if(etwrite > 0) then
 if (mod(kk,etwrite) == 0) then
 ! open/create/write the 3D output file
-open(14,file=trim(runname)//'_ET_summary.'//trim(adjustl(filenum))//'.txt')
+open(14,file=trim(runname)//'_ET_summary.'//trim(adjustl(filenumout))//'.txt')
 write(14,*) 'X Y Z ET_npart, ET_mass, ET_age, ET_comp, EvapTrans_Rate, Saturation, Porosity'
 do i = 1, nx
 do j = 1, ny
@@ -1187,13 +1202,13 @@ end if
 vtk_file=trim(runname)//'_cgrid'
 if(icwrite > 0)  then
 if(mod(kk,icwrite) == 0)  &
-call vtk_write(Time_Next(kk),C,conc_header,nx,ny,nz,pfkk,n_constituents,Pnts,vtk_file)
+call vtk_write(Time_Next(kk),C,conc_header,nx,ny,nz,outkk,n_constituents,Pnts,vtk_file)
 end if
 ! write binary particle locations and attributes
 vtk_file=trim(runname)//'_pnts'
 if(ibinpntswrite > 0)  then
 if(mod(kk,ibinpntswrite) == 0)  &
-call vtk_write_points(P,np_active,np,pfkk,vtk_file)
+call vtk_write_points(P,np_active,np,outkk,vtk_file)
 end if
 !! reset C
 C = 0.0D0
@@ -1258,7 +1273,7 @@ if (total_mass > 0.0d0)  then
 end if
 
 ! write out summary of mass, age, particles for this timestep
-  write(11,'(2(i10),3(f12.5),4(1x,e12.5,1x),3(i8),2(i12))') kk, pfkk, Time_Next(kk), mean_age , mean_comp, mean_mass, &
+  write(11,'(2(i10),3(f12.5),4(1x,e12.5,1x),3(i8),2(i12))') kk, outkk, Time_Next(kk), mean_age , mean_comp, mean_mass, &
                                           total_mass,  PET_balance(kk,1), PET_balance(kk,2), &
                                           i_added_particles,  &
                                           ET_np(kk), Out_np(kk), np_active,np_active2
