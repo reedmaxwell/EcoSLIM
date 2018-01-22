@@ -472,10 +472,10 @@ read(10,*) icwrite        ! controls VTK, binary grid based output where particl
 allocate(Time_Next(pfnt))
 
 do kk = 1, pfnt
-        Time_Next(kk) = float(kk+pft1-1)*pfdt
+        Time_Next(kk) = float(kk+outkk-1)*pfdt
 end do
 
-Time_first = float(pft1-1)*pfdt
+Time_first = float(outkk-1)*pfdt
 
 ! read in velocity multiplier
 read(10,*) V_mult
