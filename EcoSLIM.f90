@@ -740,7 +740,7 @@ pfkk = pft1 - 1
 do kk = 1, pfnt
 
 !! reset ParFlow counter for cycles
-if (mod(kk,(pft2-pft1+2)) == 0 )  pfkk = pft1 - 1
+if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
         call system_clock(T1)
         !adust the file counters
         pfkk = pfkk + 1
