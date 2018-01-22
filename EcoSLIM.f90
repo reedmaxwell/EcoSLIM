@@ -437,6 +437,7 @@ pfnt=n_cycle*(pft2-pft1+1)
 
 if (tout1 == 0) then
    outkk = pft1
+   tout1 = pft1
 else
   outkk = tout1
 end if
@@ -1347,7 +1348,7 @@ end if
 !end if
 !write(13,'(6(e12.5),i12)') float(ii)*ET_dt, ET_age(ii,1), ET_comp(ii,1), &
 !                           ET_mass(ii,1), ET_mass(ii,2),ET_mass(ii,3), ET_np(ii)
-write(13,'(6(e12.5),i12)') float(ii+pft1-1)*ET_dt, ET_age(ii,1), ET_comp(ii,1), &
+write(13,'(6(e12.5),i12)') float(ii+tout1-1)*ET_dt, ET_age(ii,1), ET_comp(ii,1), &
                             ET_comp(ii,2), ET_comp(ii,3), ET_mass(ii), ET_np(ii)
 
 64  FORMAT(6(e12.5),i12)
@@ -1369,7 +1370,7 @@ Out_comp(ii,3) = Out_comp(ii,3)/(Out_mass(ii,1))
 !Out_mass(ii,:) = Out_mass(ii,:)/(Out_mass(ii,:))
 end if
 !write(13,64) float(ii)*ET_dt, Out_age(ii,1), Out_comp(ii,1), Out_mass(ii,1), Out_np(ii)
-write(13,64) float(ii+pft1-1)*ET_dt, Out_age(ii,1), Out_comp(ii,1), &
+write(13,64) float(ii+tout1-1)*ET_dt, Out_age(ii,1), Out_comp(ii,1), &
                Out_comp(ii,2), Out_comp(ii,3), Out_mass(ii,1), Out_np(ii)
 
 end do
@@ -1383,7 +1384,7 @@ open(13,file=trim(runname)//'_PET_balance.txt')
 write(13,*) 'TIME P[kg] ET[kg]'
 do ii = 1, pfnt
 !write(13,'(3(e12.5,2x))') float(ii)*ET_dt, PET_balance(ii,1), PET_balance(ii,2)
-write(13,'(3(e12.5,2x))') float(ii+pft1-1)*ET_dt, PET_balance(ii,1), PET_balance(ii,2)
+write(13,'(3(e12.5,2x))') float(ii+tout1-1)*ET_dt, PET_balance(ii,1), PET_balance(ii,2)
 end do
 flush(13)
 ! close ET file
