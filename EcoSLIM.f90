@@ -485,7 +485,6 @@ read(10,*) V_mult
 read(10,*) clmtrans
 ! do we read in clm output file?
 read(10,*) clmfile
-!clmfile = .False.   !!!@RMM hard wired for test case, need to make this input
 
 ! read in IC number of particles for flux
 read(10,*) iflux_p_res
@@ -515,6 +514,7 @@ write(11,'("ParFlow delta-T, pfdt:",e12.5)') pfdt
 write(11,'("ParFlow timesteps, pfnt:",i12)') pfnt
 write(11,'("ParFlow start step, pft1:",i12)') pft1
 write(11,'("ParFlow end step, pft2:",i12)') pft2
+write(11,'("Output step start:",i12)') outkk
 write(11,'("Time loops, cycles, n_cycle:",i12)') n_cycle
 write(11,'("Total time steps:",i12)') pfnt
 
@@ -730,7 +730,7 @@ C = 0.0D0
 write(11,*)
 write(11,*)
 write(11,*) ' **** Transient Simulation Particle Accounting ****'
-write(11,*) ' Timestep PFTimestep    Time     Mean_Age    Mean_Comp   Mean_Mass  Total_Mass    PrecipIn    ETOut  &
+write(11,*) ' Timestep PFTimestep OutStep    Time     Mean_Age    Mean_Comp   Mean_Mass  Total_Mass    PrecipIn    ETOut  &
               NP_PrecipIn NP_ETOut &
              NP_QOut NP_active_old NP_filtered'
 flush(11)
@@ -1274,7 +1274,7 @@ if (total_mass > 0.0d0)  then
 end if
 
 ! write out summary of mass, age, particles for this timestep
-  write(11,'(2(i10),3(f12.5),4(1x,e12.5,1x),3(i8),2(i12))') kk, outkk, Time_Next(kk), mean_age , mean_comp, mean_mass, &
+  write(11,'(3(i10),3(f12.5),4(1x,e12.5,1x),3(i8),2(i12))') kk, pfkk, outkk, Time_Next(kk), mean_age , mean_comp, mean_mass, &
                                           total_mass,  PET_balance(kk,1), PET_balance(kk,2), &
                                           i_added_particles,  &
                                           ET_np(kk), Out_np(kk), np_active,np_active2
