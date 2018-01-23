@@ -12,6 +12,7 @@ SLIM_flux_test   ! SLIM run name
 1.0   ! ParFlow DT
 1        ! Parflow t1: ParFlow file number to start from (initial condition is pft1-1)
 3000        ! Parflow t2: ParFlow file number to stop at
+0          ! Output 1: First number for file writing (0 = start at ParFlow t1)
 0         ! ipwrite frequency, controls an ASCII, .3D particle file not recommended due to poor performance
 1         ! ibinpntswrite frequency, controls VTK, binary output of particle locations and attributes
 1         !  etwrite frequency, controls ASCII ET output
