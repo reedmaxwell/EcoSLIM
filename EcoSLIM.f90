@@ -650,7 +650,8 @@ do k = 1, nz
   np_active = np_active + 1
   ii = np_active
   ! assign X, Y, Z locations randomly to each cell
-  P(ii,1) = float(i-1)*dx  +ran1(ir)*dx
+  !P(ii,1) = float(i-1)*dx  +ran1(ir)*dx
+  P(ii,1) = float(i-1)*dx  +random(ir)*dx
   PInLoc(ii,1) = P(ii,1)
   P(ii,2) = float(j-1)*dy  +ran1(ir)*dy
   PInLoc(ii,2) = P(ii,2)
