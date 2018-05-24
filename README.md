@@ -63,8 +63,7 @@ SLIM_hillslope   ! SLIM run name, path to ParFlow files follows, then DEM file
 1.0         ! ParFlow DT
 1          ! ParFlow t1: ParFlow file number to start from (initial condition is pft1-1)
 1752       ! ParFlow t2: ParFlow file number to stop at
-1          ! EcoSLIM output start counter 0=pft1-1
-0          ! Output 1: First number for file writing (0 = start at ParFlow t1)
+1          ! EcoSLIM output start counter 0=pft1
 2          ! Time Sequence Repeat [n_cycle*(pft2-pft1)]
 0         ! ipwrite frequency, controls an ASCII, .3D particle file not recommended due to poor performance
 0         ! ibinpntswrite frequency, controls VTK, binary output of particle locations and attributes
