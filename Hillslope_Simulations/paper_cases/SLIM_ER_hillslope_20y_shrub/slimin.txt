@@ -1,0 +1,27 @@
+SLIM_hillslope_ER_shrub      ! SLIM run name, path to PF-CLM next, followed by DEM
+"/Volumes/LaCie/EcoSLIM/hillslope_clm_ER_shrub/hillslope_clm_ER_shrub"
+"../hillslope.dem.pfb"
+20              !nx
+5               !ny
+20              !nz
+1               !particles per cell at start of simulation
+30000000        !np Total
+5.0             !dx
+0.2             !dy, dz follows
+0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.3, 0.1
+1.0             !ParFlow DT
+35041           !Parflow t1: ParFlow file number to start from (initial condition is pft1-1)
+43800           !Parflow t2: (last year of a 5y run)
+1               !EcoSLIM output start counter 0=pft1-1
+20              !Time Sequence Repeat [n_cycle*(pft2-pft1)] 20 year EcoSLIM run
+0               !ipwrite frequency, controls an ASCII, .3D particle file not recommended due to poor performance
+168             !ibinpntswrite frequency, controls VTK, binary output of particle locations and attributes
+0               !etwrite frequency, controls ASCII ET output
+24              !icwrite frequency,controls VTK, binary grid based output where particle masses, concentrations
+1.0d0           !velocity multiplier 1.0=forward, -1.0=backward
+True            !CLM Evap Trans
+True            !CLM Evap Trans
+2               !number of particles per Evap Trans IC
+1000.0          !density H2O 
+0.00000001      !Molecular Diffusivity  
+0.250d0         !fraction of Dx/Vx for numerical stability

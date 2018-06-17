@@ -650,11 +650,11 @@ do k = 1, nz
   np_active = np_active + 1
   ii = np_active
   ! assign X, Y, Z locations randomly to each cell
-  !P(ii,1) = float(i-1)*dx  +ran1(ir)*dx
-  P(ii,1) = float(i-1)*dx  +random(ir)*dx
-  PInLoc(ii,1) = P(ii,1)
-  P(ii,2) = float(j-1)*dy  +ran1(ir)*dy
-  PInLoc(ii,2) = P(ii,2)
+  ! assign X, Y, Z locations randomly to each cell
+ P(ii,1) = float(i-1)*dx  +ran1(ir)*dx
+ PInLoc(ii,1) = P(ii,1)
+ P(ii,2) = float(j-1)*dy  +ran1(ir)*dy
+ PInLoc(ii,2) = P(ii,2)
   Z = 0.0d0
   do ik = 1, k
   Z = Z + dz(ik)
@@ -709,6 +709,62 @@ else if (np_ic == -1) then
 end if
 flush(11)
 
+!! Define initial particles' locations by surface water
+!!
+if (np_ic < -1)  then
+np_active = 0
+
+PInLoc=0.0d0
+!call srand(333)
+ir = -3333
+do i = 1, nx
+do j = 1, ny
+k = nz
+  if (np_active < np) then   ! check if we have particles left
+  !if (saturation(i,j,k) >= 0.95d0)  then
+  do ij = 1, abs(np_ic)
+  np_active = np_active + 1
+  ii = np_active
+  ! assign X, Y, Z locations randomly to each cell
+  ! assign X, Y, Z locations randomly to each cell
+ P(ii,1) = float(i-1)*dx  +ran1(ir)*dx
+ PInLoc(ii,1) = P(ii,1)
+ P(ii,2) = float(j-1)*dy  +ran1(ir)*dy
+ PInLoc(ii,2) = P(ii,2)
+  Z = 0.0d0
+  do ik = 1, k
+  Z = Z + dz(ik)
+  end do
+
+  P(ii,3) = Z !-dz(k)*ran1(ir)
+  PInLoc(ii,3) = P(ii,3)
+
+        ! assign mass of particle by the volume of the cells
+        ! and the water contained in that cell
+        P(ii,6) = dx*dy*dz(k)*(Porosity(i,j,k)  &
+                 *Saturation(i,j,k))*denh2o*(1.0d0/float(np_ic))
+        P(ii,7) = 1.0d0
+        P(ii,8) = 1.0d0
+        ! set up intial concentrations
+        C(1,i,j,k) = C(1,i,j,k) + P(ii,8)*P(ii,6) /  &
+        (dx*dy*dz(k)*(Porosity(i,j,k)        &
+         *Saturation(i,j,k)))
+        C(2,i,j,k) = C(2,i,j,k) + P(ii,8)*P(ii,4)*P(ii,6)
+        C(4,i,j,k) = C(4,i,j,k) + P(ii,8)*P(ii,7)*P(ii,6)
+        C(3,i,j,k) = C(3,i,j,k) + P(ii,8)*P(ii,6)
+end do   ! particles per cell
+!end if  !! saturated at top
+else
+  write(11,*) ' **Warning IC input but no paricles left'
+  write(11,*) ' **Exiting code gracefully writing restart '
+  goto 9090
+
+end if
+end do ! i
+end do ! j
+
+end if !! river IC
+
 ! Write out intial concentrations
 ! normalize ages by mass
 where (C(3,:,:,:)>0.0)  C(2,:,:,:) = C(2,:,:,:) / C(3,:,:,:)
@@ -749,6 +805,12 @@ open(114,file=trim(runname)//'_exited_particles.bin', FORM='unformatted',  &
 
 !write(114,*) 'Time X Y Z PTime Mass Comp ExitStatus'
 !flush(114)
+
+if(ipwrite < 0) then
+! open/create/write the 3D output file which will write particles out each timestemp, very slowly in parallel
+open(214,file=trim(runname)//'_total_particle_trace.3D')
+write(214,*) 'X Y Z TIME'
+end if !! ipwrite < 0
 
 !--------------------------------------------------------------------
 ! (3) For each timestep, loop over all particles to find and
@@ -893,7 +955,7 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
 !$OMP& SHARED(EvapTrans, Vx, Vy, Vz, P, Saturation, Porosity, dx, dy, dz, denh2o) &
 !$OMP& SHARED(np_active, pfdt, nz, nx, ny, xmin, ymin, zmin, xmax, ymax, zmax)  &
 !$OMP& SHARED(kk, pfnt, out_age, out_mass, out_comp, out_np, dtfrac, et_age, et_mass) &
-!$OMP& SHARED(et_comp, et_np, moldiff, efract, C) &
+!$OMP& SHARED(et_comp, et_np, moldiff, efract, C,ipwrite) &
 !$OMP& Default(private)
 
 ! loop over active particles
@@ -1118,6 +1180,13 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
                         if (P(ii,3) <=Zmin) P(ii,3) = Zmin+ (Zmin - P(ii,3) )
                         if (P(ii,1) <=Xmin) P(ii,1) = Xmin+ (Xmin - P(ii,1) )
 
+                        ! write all active particles at concentration in ASCII VisIT 3D file format continuously
+                        ! as noted above, this option is very slow compared to VTK binary output
+                        if (ipwrite < 0) then
+                          if (P(ii,8) == 1.0d0) write(214,61) P(ii,1), P(ii,2), P(ii,3), P(ii,4)
+                        flush(214)
+                      end if !! ipwrite
+
 
                 end do  ! end of do-while loop for particle time to next time
         999 continue   ! where we go if the particle is out of bounds
@@ -1147,6 +1216,9 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
                                 !$OMP Atomic
                                 C(5,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) = C(5,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) + P(ii,8)*P(ii,9)*P(ii,6)
         end if   !! end-if; check if particle is active
+
+
+
         end do !  ii,  end particle loop
         !$OMP END DO NOWAIT
         !$OMP FLUSH
@@ -1163,6 +1235,7 @@ call system_clock(T1)
 62  FORMAT(4(e12.5))
 
 write(filenumout,'(i5.5)') outkk
+
 
 ! write all active particles at concentration in ASCII VisIT 3D file format
 ! as noted above, this option is very slow compared to VTK binary output
@@ -1379,6 +1452,8 @@ end if
 !write(13,64) float(ii)*ET_dt, Out_age(ii,1), Out_comp(ii,1), Out_mass(ii,1), Out_np(ii)
 write(13,64) float(ii+tout1-1)*ET_dt, Out_age(ii,1), Out_comp(ii,1), &
                Out_comp(ii,2), Out_comp(ii,3), Out_mass(ii,1), Out_np(ii)
+
+if(ipwrite < 0) close(214)
 
 end do
 flush(13)
