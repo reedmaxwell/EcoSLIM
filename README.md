@@ -3,28 +3,44 @@ EcoSLIM
 
 **EcoSLIM** private repo for development.  Will be moved to public repo under `/ParFlow` when published
 
-**EcoSLIM** is a Lagrangian, particle-tracking that simulates advective and diffusive movement of water parcels.  This code can be used to simulate age, diagnosing travel times, source water composition and flowpaths.  It integrates seamlessly with **ParFlow-CLM**.
+**EcoSLIM** is a Lagrangian, particle-tracking code that simulates advective and diffusive movement of water parcels.  This code can be used to simulate age, diagnose travel times, source water composition and flowpaths.  It integrates seamlessly with **ParFlow-CLM**.
 
-#### Development Team
+### Development Team
 + Reed Maxwell <rmaxwell@mines.edu>
 + Mohammad Danesh-Yazdi <danesh@mines.edu>
 + Laura Condon <lecondon@syr.edu>
 + Lindsay Bearup <lbearup@usbr.gov>
 
-To build simply type `make` in the main window, to set number of parallel threads use either
+### Citatation
+For more details on the model and if you use EcoSLIM in published work please cite the following reference:
+..Maxwell, R.M., L.E. Condon, M. Danesh-Yazdi and L.A. Bearup, *Exploring source water mixing and transient residence time distributions of outflow and  evapotranspiration with an integrated hydrologic model and Lagrangian particle tracking approach*, in review, 2018.
+
+Building and Running
+--------------------
+To build **EcoSLIM** simply type `make` in the directory with the main directory where `EcoSLIM.f90` sits
+To set the number of parallel threads use either
 `export OMP_NUM_THREADS=16` for bash or
 `setenv OMP_NUM_THREADS 16` for t/c-shell.
 
 To run you will need to have a completed ParFlow simulation and an
 EcoSLIM input file that must be named `slimin.txt` and follow the
-format described below. Note that this file does not need to be co-located
+format described below. Note that the slim input file does not need to be co-located
 with the ParFlow simulation.  
 
 To run simply execute `EcoSLIM.exe` from the directory that contains the
 `slimin.txt` input file.
 
+Refer to the **Examples** directory described below for example workflows
+running with ParFlow and **EcoSLIM**
+
 `slimin.txt`  Main input file. Includes domain geometry, **ParFlow** timing and input, total number of particles,   initial conditions and information about **CLM**.
 
+Required Inputs
+--------------------
+
+
+EcoSLIM Parameters
+--------------------
 including/defining:
 * Number of ParFlow grid cells in the x-direction
 * Number of ParFlow grid cells in the y-direction
@@ -45,6 +61,20 @@ including/defining:
 * Molecular Diffusivity
 * Fraction of Dx/Vx (also Dy/Vy and Dz/Vz) for numerical stability
 * Number of concentration constituents
+
+
+Model Outputs
+-----------------
+
+Examples and tests contained in the repo
+----------------------------------------
+The **Examples** folder contains the following test cases. A short description
+is provided here. For more details on how to run the examples refer to the
+readme files in that directory.
+1. **Example name**:Write short description here
+2. **Example name**:Write short description here
+3. **Example name**:Write short description here
+4. **Example name**:Write short description here
 
 ### Example format for this file
 
