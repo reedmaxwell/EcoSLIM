@@ -35,7 +35,7 @@ running with ParFlow and **EcoSLIM**
 
 `slimin.txt`  Main input file. Includes domain geometry, **ParFlow** timing and input, total number of particles,   initial conditions and information about **CLM**.
 
-Required Inputs
+Inputs
 --------------------
 **Mandatory Inputs**
 1. `slimin.txt`: EcoSLIM input file (See following section for description)
@@ -45,7 +45,7 @@ Required Inputs
    * Porosity - Used to determine the volume of water in a cell for determining particle mass
 
 **Optional Inputs**
-1. DEM for ParFlow simulation: If no DEM is provided all elevations are set to zero. **##FILL in DEM Details**
+1. DEM for ParFlow simulation: If no DEM is provided all elevations are set to zero. **##FILL in **
 2. Evapotranspiration: This is normally written by *CLM* but can also be written by *ParFlow* (*out.evaptrans.filenumber.pfb* if clmtrans=T-- EvapTrans)**##FILL in**
 3. CLM single file output (*.out.clm_output.t.C.pfb* if clmfile=T --CLMvars) used to specify rain and slow **##FILL in**
 
@@ -61,15 +61,14 @@ Here we describe each parameter and what they do:
 * **ParFlow Runname (pname):** The runname used for the ParFlow simulations. If the *ParFlow*
 outputs are not located in the same directory as the *EcoSLIM* run this should also
 include the directory path to the *ParFlow* simulation as shown in the example below.
-* **DEM File Name (DEMname):** The name of the DEM file for the *ParFlow* simulations. If you want
-to provide a dem you can leave this line blank **##CLARIFY THIS**
+* **DEM File Name (DEMname):** The name of the DEM file for the *ParFlow* simulations. If this line is left blank all elevations will be set to zero **##Fill in*
 * **ParFlow nx (nx):** Number of grid cells in the x-direction for ParFlow domain
 * **ParFlow ny (ny):**  Number of grid cells in the y-direction for ParFlow domain
 * **ParFlow nz (nz):**  Number of grid cells in the z-direction for ParFlow domain
 * **Number of Initial Particles (np_ic):** If a positive integer is provided this will be the number of
 particles placed in every grid cell at the start of the simulation. To start from a previous
 *EcoSLIM* output set this value to -1. In this case particles will be initialized from the
-`runname_particle_restart.bin` file (refer to the outputs section for details on this file).  **##CLARIFY how this gets overwritten**
+`runname_particle_restart.bin` file (refer to the outputs section for details on this file).  **##Check**
 * **Total Particles (np)**: The total number of particles allowed in the simulation. If the particle count
 exceeds this at any point (i.e. through particle addition with initial conditions or rainfall events)
 the simulation will exit.
@@ -132,7 +131,7 @@ Model Outputs
 -----------------
 **Single File Outputs**
 1. `runname.out.log`: A log of the settings used for the simulations and any warnings that
-occured **CONFIRM**
+occur. **#Check**
 2. `runname_particle_restart.bin`: Binary file containing all the particle informaiton for the last time step of the simulation. (116)
 3. `runname_exited_particles.bin` (114)
   * Time
