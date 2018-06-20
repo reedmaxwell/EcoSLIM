@@ -54,39 +54,37 @@ in the **Examples** folder. Inputs *must* be provided in the oder they appear in
 template shown here.
 
 Here we describe each parameter and what they do:
-1. EcoSLIM Runname:
-⋅⋅⋅The runname for all of the file outputs
-* ParFlow Runname: The runname used for the ParFlow simulations. If the **ParFlow**
-outputs are not located in the same directory as the **EcoSLIM** run this should also
-include the directory path to the **ParFlow** simulation as shown in the example below.
-* DEM File Name: The name of the DEM file for the **ParFlow** simulations. If you want
+1. **EcoSLIM Runname:**The runname for all of the file outputs
+* **ParFlow Runname**: The runname used for the ParFlow simulations. If the *ParFlow*
+outputs are not located in the same directory as the *EcoSLIM* run this should also
+include the directory path to the *ParFlow* simulation as shown in the example below.
+* **DEM File Name**: The name of the DEM file for the *ParFlow* simulations. If you want
 to provide a dem you can leave this line blank **##CLARIFY THIS**
-* **ParFlow** nx: Number of grid cells in the x-direction for ParFlow domain
-* **ParFlow** ny:  Number of grid cells in the y-direction for ParFlow domain
-* **ParFlow** nz:  Number of grid cells in the z-direction for ParFlow domain
-* Initial Particles: If a positive integer is provided this will be the number of
+* **ParFlow nx**: Number of grid cells in the x-direction for ParFlow domain
+* **ParFlow ny**:  Number of grid cells in the y-direction for ParFlow domain
+* **ParFlow nz**:  Number of grid cells in the z-direction for ParFlow domain
+* **Initial Particles**: If a positive integer is provided this will be the number of
 particles placed in every grid cell at the start of the simulation. To start from a previous
-**EcoSLIM** output set this value to -1. In this case particles will be initialized from the
+*EcoSLIM* output set this value to -1. In this case particles will be initialized from the
 `runname_particle_restart.bin` file (refer to the outputs section for details on this file).  **##CLARIFY how this gets overwritten**
-* Total Particles: The total number of particles allowed in the simulation. If the particle count
+* **Total Particles**: The total number of particles allowed in the simulation. If the particle count
 exceeds this at any point (i.e. through particle addition with initial conditions or rainfall events)
 the simulation will exit.
-* **ParFlow** dx: **ParFlow** grid cell size in the x-direction
-* **ParFlow** dy: **ParFlow** grid cell size in the y-direction
-* **ParFlow** dz: **ParFlow** grid cell size in the x-direction. This should be a list separated
+* **ParFlow dx**: *ParFlow* grid cell size in the x-direction
+* **ParFlow dy**: *ParFlow* grid cell size in the y-direction
+* **ParFlow** dz: *ParFlow* grid cell size in the x-direction. This should be a list separated
 by comas that is nz long (refer to example below).
-* **ParFlow** dt: The time step used for the ParFlow simulation. Note that currently EcoSLIM assumes
-a constant time step so this is not compatible with growth times steps in **ParFlow**
-* Initial ParFlow Timestep:
-
+* **ParFlow dt**: The time step used for the ParFlow simulation. Note that currently EcoSLIM assumes
+a constant time step so this is not compatible with growth times steps in *ParFlow*
+* **Starting ParFlow File Number**: The file number for the *ParFlow* output to start the *EcoSLIM* simulation from. Note that the initial conditions will be set from the file number before this **##Clarify what the initial conditions are used for ##
+* **Ending ParFlow File Number**: The file number for the *ParFlow* output to stop the *EcoSLIM* simulation at.
+* **EcoSLIM Output Start Counter**: This initializes the file numbering for the *EcoSLIM* outputs. If this is set to zero then the first *EcoSLIM* output number will be set to match  starting *ParFlow* file number specified above.
+* **Time Sequence Repeat**: If the time sequence repeat is greater than one the
+*ParFlow* inputs will be repeated the specified n time. (i.e. the total number of time
+  steps simulated will be n*(pft2-pft1) **##449
 
 
 including/defining:
-* Number of particles per cell at start of simulation
-* Total number of particles to be tracked
-* ParFlow timestep
-* ParFlow file number to start from
-* ParFlow file number to stop at
 * Velocity multiplier: 1.0=forward tracking, -1.0=backward tracking
 * A logical parameter that turns CLM Evap Trans reading on / off
 * Number of particles entering domain via Evap Trans
