@@ -77,7 +77,7 @@ the simulation will exit.
 * **ParFlow dz (dz):** *ParFlow* grid cell size in the x-direction. This should be a list separated
 by comas that is nz long (refer to example below).
 * **ParFlow time step (pfdt):** The time step used for the ParFlow simulation. The time units of this are determined by the *ParFlow* simulation and all *EcoSLIM* outputs will have the same units. Currently EcoSLIM assumes a constant time step so this is not compatible with growth times steps in *ParFlow*
-* **Starting ParFlow File Number (pft1):** The file number for the *ParFlow* output to start the *EcoSLIM* simulation from. Note that the initial conditions will be set from the file number before this **##Clarify what the initial conditions are used for ##
+* **Starting ParFlow File Number (pft1):** The file number for the *ParFlow* output to start the *EcoSLIM* simulation from. Note that the initial conditions will be set from the file number before this **##Clarify IC use ##
 * **Ending ParFlow File Number (pft2):** The file number for the *ParFlow* output to stop the *EcoSLIM* simulation at.
 * **EcoSLIM Output Start Counter (tout1):** This initializes the file numbering for the *EcoSLIM* outputs. If this is set to zero then the first *EcoSLIM* output number will be set to match  starting *ParFlow* file number specified above.
 * **Time Sequence Repeat (n_cycle):** If the time sequence repeat is greater than one the
@@ -127,7 +127,7 @@ True           ! CLM Variables Read logical
 0.5d0       ! fraction of Dx/Vx for numerical stability
 ```
 
-Model Outputs
+Outputs
 -----------------
 **Single File Outputs**
 1. `runname.out.log`: A log of the settings used for the simulations and any warnings that
