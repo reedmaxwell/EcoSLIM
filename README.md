@@ -1,6 +1,5 @@
 EcoSLIM
 =======
-### Readme is currently under construction, check back soon for updated version
 *EcoSLIM* private repo for development.  Will be moved to public repo under `/ParFlow` when published
 
 *EcoSLIM* is a Lagrangian, particle-tracking code that simulates advective and diffusive movement of water parcels.  This code can be used to simulate age, diagnose travel times, source water composition and flowpaths.  It integrates seamlessly with *ParFlow-CLM*.
@@ -38,13 +37,13 @@ Inputs
 --------------------
 **Mandatory Inputs**
 1. **EcoSlim driver file:** The main *EcoSLIM* input file that includes information on domain geometry, *ParFlow* timing and input, and particle options. This file must be named `slimin.txt`.  Refer to the *Settings* section for a complete description of this file.
-2. **ParFlow* outputs:** The following *ParFlow* outputs for at least one time must be provided as pfbs.
+2. **ParFlow outputs:** The following *ParFlow* outputs for at least one time must be provided as pfbs.
    * Velocity - In x, y, and z directions. Used for particle advection
    * Saturation - Used to determine the volume of water in a cell for determining particle mass
    * Porosity - Used to determine the volume of water in a cell for determining particle mass
 
 **Optional Inputs**
-1. **Elevation values:** DEM file for ParFlow domain in pfb format. If no DEM is provided all elevations are set to zero.
+1. **Elevation:** DEM file for ParFlow domain in pfb format. If no DEM is provided all elevations are set to zero.
 2. **Evapotranspiration:** Evapotranspiration files in pfb format (i.e. *out.evaptrans.filenumber.pfb*) that specifies the vertical water flux across the land surface.  This is normally written by *CLM* but can also be written by *ParFlow* . If evaptrans is less than zero particles will be added to the domain if evaptrans is greater than zero particles are removed through ET. **#**
 3. **CLM single file output:** Single file CLM output files (i.e. *.C.pfb* files). These are used to distinguish between rain and snow particles. NOTE: *EcoSLIM* assumes the *CLM* outputs have 10 soil layers. If this is not the case you must change *nCLMsoil* in  `EcoSLIM.f90` **#**
 
@@ -56,7 +55,7 @@ in the *Examples* folder. Inputs *must* be provided in the oder they appear in t
 template shown here.
 
 Here we describe each parameter and what they do:
-1. **EcoSLIM Runname (runname):** The runname for all of the file outputs
+* **EcoSLIM Runname (runname):** The runname for all of the file outputs
 * **ParFlow Runname (pname):** The runname used for the ParFlow simulations. If the *ParFlow*
 outputs are not located in the same directory as the *EcoSLIM* run this should also
 include the directory path to the *ParFlow* simulation as shown in the example below.
@@ -174,7 +173,7 @@ Transient files outputs are written at the frequencies specified in the slimin.t
 +  *Mass*= Particle Mass [M]
 +  *Source* = Particle source type (1= particles initialized in the domain, 2=particles added by a rain event, 3= particles added by a snow event) [-]
 +  *Status* = Flag indicating whether particle is currently active (1=active, 0=inactive) [-]
-+  *Particle_Concentration*= Placeholder, currently set to 1 (**#**)
++  *Particle_Concentration*= Placeholder, currently set to 1 (**##**)
 +  *Exit_Status* = Flag indicating how inactive particles left the domain (1=outflow, 2=ET) [-]
 
 **Gridded Variables:** Variables aggregated to the *ParFlow* grid cells at every *ParFlow* time step
@@ -192,11 +191,11 @@ Transient files outputs are written at the frequencies specified in the slimin.t
 + *ET_Source* = Mass weighted average source of particles leaving as ET from a cell [-]
 
 Note: All Length [L] and Time [T] units are set by the ParFlow simulation and spatial coordinates start from the lower left hand corner of the bottom layer consistent with ParFlow (**#**).
-9
+
 
 Examples and tests contained in the repo
 ----------------------------------------
-The **Examples** folder contains the following test cases. A short description
+The *Examples* folder contains the following test cases. A short description
 is provided here. For more details on how to run the examples refer to the
 readme files in that directory.
 1. **Example name**:Write short description here **##**
