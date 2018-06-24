@@ -10,10 +10,10 @@ objects = \
 .SUFFIXES:  .mod .o .f90
 
 EcoSLIM.exe : $(objects)
-		gfortran -fopenmp  -O3 -o EcoSLIM.exe $(objects)
+		gfortran -fopenmp -O3 -o EcoSLIM.exe $(objects)
 
 .f90.o :
-		gfortran -fopenmp -O3 -c $<
+		gfortran  -fopenmp -O3 -c $<
 
 .PHONY : clean
 	clean :
