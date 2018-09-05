@@ -12,7 +12,7 @@ EcoSLIM
 
 #### Citation
 For more details on the model and if you use EcoSLIM in published work please cite the following reference:  
-   *Maxwell, R.M., L.E. Condon, M. Danesh-Yazdi and L.A. Bearup, Exploring source water mixing and transient residence time distributions of outflow and  evapotranspiration with an integrated hydrologic model and Lagrangian particle tracking approach, in review, 2018.*
+   *Maxwell, R.M., L.E. Condon, M. Danesh-Yazdi and L.A. Bearup, Exploring source water mixing and transient residence time distributions of outflow and  evapotranspiration with an integrated hydrologic model and Lagrangian particle tracking approach, Ecohydrology, [doi: 10.1002/eco.2042](https://doi.org/10.1002/eco.2042), 2018.*
 
 Building and Running
 --------------------
