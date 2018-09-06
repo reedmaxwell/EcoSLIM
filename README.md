@@ -1,18 +1,16 @@
 EcoSLIM
 =======
-*EcoSLIM* private repo for development.  Will be moved to public repo under `/ParFlow` when published
-
 *EcoSLIM* is a Lagrangian, particle-tracking code that simulates advective and diffusive movement of water parcels.  This code can be used to simulate age, diagnose travel times, source water composition and flowpaths.  It integrates seamlessly with *ParFlow-CLM*.
 
 #### Development Team
 + Reed Maxwell <rmaxwell@mines.edu>
 + Laura Condon <lecondon@email.arizona.edu>
-+ Mohammad Danesh-Yazdi <danesh@mines.edu>
++ Mohammad Danesh-Yazdi <danesh@sharif.edu>
 + Lindsay Bearup <lbearup@usbr.gov>
 
 #### Citation
 For more details on the model and if you use EcoSLIM in published work please cite the following reference:  
-   *Maxwell, R.M., L.E. Condon, M. Danesh-Yazdi and L.A. Bearup, Exploring source water mixing and transient residence time distributions of outflow and  evapotranspiration with an integrated hydrologic model and Lagrangian particle tracking approach, in review, 2018.*
+   *Maxwell, R.M., L.E. Condon, M. Danesh-Yazdi and L.A. Bearup, Exploring source water mixing and transient residence time distributions of outflow and  evapotranspiration with an integrated hydrologic model and Lagrangian particle tracking approach, Ecohydrology, [doi: 10.1002/eco.2042](https://doi.org/10.1002/eco.2042), 2018.*
 
 Building and Running
 --------------------
@@ -198,8 +196,5 @@ Examples and tests contained in the repo
 The *Examples* folder contains the following test cases. A short description
 is provided here. For more details on how to run the examples refer to the
 readme files in that directory.
-1. **ParFLow_SteadyFlux**: A hillslope domain with constant recharge and ET applied at the top and bottom of the hill respectively.  Example is setup to run *EcoSLIM* on transient *ParFlow* outputs without *CLM*. The documentation for this example includes all the steps for running *ParFlow* and *EcoSLIM*
-2. **Example name**:Write short description here **##**
-3. **Example name**:Write short description here **##**
-4. **Example name**:Write short description here **##**
-4. **Example name**:Write short description here **##**
+1. **ParFlow_SteadyFlux**: A hillslope domain with constant recharge and ET applied at the top and bottom of the hill respectively.  Example is setup to run *EcoSLIM* on transient *ParFlow* outputs without *CLM*. The documentation for this example includes all the steps for running *ParFlow* and *EcoSLIM*
+2. **Hillslope_Simulations/paper_cases**:Hillslope Cases Run in Maxwell et al 2018, see readme file for more details
