@@ -3,4 +3,5 @@ Examples Directory
 
 ** Steady flux **##
 
-** Hillslope   **##
+** Hillslope_Simulations**
+Cases from Maxwell et al EHL 2018
