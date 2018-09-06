@@ -1,13 +1,11 @@
 EcoSLIM
 =======
-*EcoSLIM* private repo for development.  Will be moved to public repo under `/ParFlow` when published
-
 *EcoSLIM* is a Lagrangian, particle-tracking code that simulates advective and diffusive movement of water parcels.  This code can be used to simulate age, diagnose travel times, source water composition and flowpaths.  It integrates seamlessly with *ParFlow-CLM*.
 
 #### Development Team
 + Reed Maxwell <rmaxwell@mines.edu>
 + Laura Condon <lecondon@email.arizona.edu>
-+ Mohammad Danesh-Yazdi <danesh@mines.edu>
++ Mohammad Danesh-Yazdi <danesh@sharif.edu>
 + Lindsay Bearup <lbearup@usbr.gov>
 
 #### Citation
