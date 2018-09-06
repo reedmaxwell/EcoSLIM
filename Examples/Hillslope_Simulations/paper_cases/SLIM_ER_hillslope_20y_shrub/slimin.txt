@@ -1,5 +1,5 @@
 SLIM_hillslope_ER_shrub      ! SLIM run name, path to PF-CLM next, followed by DEM
-"/Volumes/LaCie/EcoSLIM/hillslope_clm_ER_shrub/hillslope_clm_ER_shrub"
+"../hillslope_clm_ER_shrub/hillslope_clm_ER_shrub"
 "../hillslope.dem.pfb"
 20              !nx
 5               !ny
@@ -22,6 +22,6 @@ SLIM_hillslope_ER_shrub      ! SLIM run name, path to PF-CLM next, followed by D
 True            !CLM Evap Trans
 True            !CLM Evap Trans
 2               !number of particles per Evap Trans IC
-1000.0          !density H2O 
-0.00000001      !Molecular Diffusivity  
+1000.0          !density H2O
+0.00000001      !Molecular Diffusivity
 0.250d0         !fraction of Dx/Vx for numerical stability

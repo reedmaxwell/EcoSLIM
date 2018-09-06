@@ -1,14 +1,14 @@
-#  This runs the LW shrub PF-CLM hillslope simulation
-#  from Maxwell et al EHL
-#  the script runs for 5 years with repeated one water-year of 
+#  This runs the ER shrub PF-CLM hillslope simulation
+#  from Maxwell et al EHL 2018
+#  the script runs for 5 years with repeated one water-year of
 #  hourly forcing to spin up the hillslope
 #
 # rmaxwell@mines.edu
 # May 2018
-# 
+#
 # Import the ParFlow TCL package
 #
-lappend auto_path $env(PARFLOW_DIR)/bin 
+lappend auto_path $env(PARFLOW_DIR)/bin
 package require parflow
 namespace import Parflow::*
 
@@ -31,12 +31,12 @@ pfset ComputationalGrid.NX                20
 pfset ComputationalGrid.NY                5
 pfset ComputationalGrid.NZ                20
 
-pfset ComputationalGrid.DX	          5.0
+pfset ComputationalGrid.DX	              5.0
 pfset ComputationalGrid.DY                0.2
-pfset ComputationalGrid.DZ	          0.5
+pfset ComputationalGrid.DZ	              0.5
 
 #---------------------------------------------------------
-# Domain Geometry 
+# Domain Geometry
 #---------------------------------------------------------
 pfset GeomInput.Names                 "domain_input"
 
@@ -49,7 +49,7 @@ pfset GeomInput.domain_input.GeomName             domain
 #---------------------------------------------------------
 # Domain Geometry
 #---------------------------------------------------------
-pfset Geom.domain.Lower.X                    0.0 
+pfset Geom.domain.Lower.X                    0.0
 pfset Geom.domain.Lower.Y                    0.0
 pfset Geom.domain.Lower.Z                    0.0
 
@@ -62,7 +62,7 @@ pfset Geom.domain.Patches "x-lower x-upper y-lower y-upper z-lower z-upper"
 #--------------------------------------------
 # variable dz assignments
 #------------------------------------------
-pfset Solver.Nonlinear.VariableDz  True 
+pfset Solver.Nonlinear.VariableDz  True
 pfset dzScale.GeomNames            domain
 pfset dzScale.Type            nzList
 pfset dzScale.nzListNumber       20
@@ -86,7 +86,7 @@ pfset Cell.14.dzScale.Value 1.0
 pfset Cell.15.dzScale.Value 1.0
 pfset Cell.16.dzScale.Value 1.0
 pfset Cell.17.dzScale.Value 1.0
-# 0.5 m * 0.6 = 0.3 m 
+# 0.5 m * 0.6 = 0.3 m
 pfset Cell.18.dzScale.Value .6
 # 0.50 m * 0.2 = 0.1m = 10 cm which is default top Noah layer
 pfset Cell.19.dzScale.Value 0.2
@@ -162,7 +162,7 @@ pfset Gravity				1.0
 #-----------------------------------------------------------------------------
 
 # run for 5 years @ 1 hr timesteps, output every timestep
-# 
+#
 pfset TimingInfo.BaseUnit        1.0
 pfset TimingInfo.StartCount      0
 pfset TimingInfo.StartTime       0.0
@@ -171,7 +171,7 @@ pfset TimingInfo.StopTime        43800.0
 pfset TimingInfo.DumpInterval    -1
 pfset TimeStep.Type              Constant
 pfset TimeStep.Value             1.
- 
+
 #-----------------------------------------------------------------------------
 # Porosity
 #-----------------------------------------------------------------------------
@@ -196,7 +196,7 @@ pfset Phase.RelPerm.Type               VanGenuchten
 pfset Phase.RelPerm.GeomNames          "domain"
 
 pfset Geom.domain.RelPerm.Alpha         1.0
-pfset Geom.domain.RelPerm.N             2. 
+pfset Geom.domain.RelPerm.N             2.
 
 #---------------------------------------------------------
 # Saturation
@@ -224,7 +224,7 @@ pfset Cycle.constant.Names           "alltime"
 pfset Cycle.constant.alltime.Length  1
 pfset Cycle.constant.Repeat         -1
 
- 
+
 #-----------------------------------------------------------------------------
 # Boundary Conditions: Pressure
 #-----------------------------------------------------------------------------
@@ -273,7 +273,7 @@ pfset TopoSlopesY.GeomNames "domain"
 pfset TopoSlopesY.Geom.domain.Value 0.00
 
 #---------------------------------------------------------
-# Mannings coefficient 
+# Mannings coefficient
 #---------------------------------------------------------
 
 pfset Mannings.Type "Constant"
@@ -306,17 +306,17 @@ pfset Solver.MaxIter                                     2000000
 
 pfset Solver.Nonlinear.MaxIter                           300
 pfset Solver.Nonlinear.ResidualTol                       1e-6
-pfset Solver.Nonlinear.EtaChoice                         Walker1 
+pfset Solver.Nonlinear.EtaChoice                         Walker1
 pfset Solver.Nonlinear.EtaChoice                         EtaConstant
 pfset Solver.Nonlinear.EtaValue                          0.001
-pfset Solver.Nonlinear.UseJacobian                       True 
+pfset Solver.Nonlinear.UseJacobian                       True
 pfset Solver.Nonlinear.DerivativeEpsilon                 1e-16
 pfset Solver.Nonlinear.StepTol				 1e-20
 pfset Solver.Nonlinear.Globalization                     LineSearch
 pfset Solver.Linear.KrylovDimension                      20
 pfset Solver.Linear.MaxRestart                           2
-pfset Solver.Linear.Preconditioner                      PFMG 
- 
+pfset Solver.Linear.Preconditioner                      PFMG
+
 # no silo output files
 pfset Solver.WriteSiloSubsurfData                       False
 pfset Solver.WriteSiloPressure                          False
@@ -345,13 +345,13 @@ pfset Solver.CLM.SingleFile                             True
 pfset Solver.LSM                                         CLM
 pfset Solver.CLM.MetForcing                              1D
 pfset Solver.CLM.MetFileName                            ER_forcing.txt
-pfset Solver.CLM.MetFilePath                            ../
+pfset Solver.CLM.MetFilePath                            ../clm_input
 
 # turn off all CLM native binary, log putput
 pfset Solver.CLM.Print1dOut                           False
 pfset Solver.BinaryOutDir                             False
 pfset Solver.WriteCLMBinary                           False
-pfset Solver.CLM.WriteLogs                          False 
+pfset Solver.CLM.WriteLogs                          False
 
 pfset Solver.CLM.CLMDumpInterval                      1
 
@@ -368,7 +368,7 @@ pfset Solver.CLM.RZWaterStress                           1
 pfset Solver.CLM.IrrigationType                       none
 
 
-## writing only last daily restarts.  This will be at Midnight GMT and 
+## writing only last daily restarts.  This will be at Midnight GMT and
 ## starts at timestep 18, then intervals of 24 thereafter
 pfset Solver.CLM.WriteLastRST                       True
 pfset Solver.CLM.DailyRST                           True
@@ -393,11 +393,15 @@ pfset Geom.domain.ICPressure.Value                      -2.0
 #-----------------------------------------------------------------------------
 
 file mkdir hillslope_clm_ER_shrub
-cd hillslope_clm_ER_shrub 
+cd hillslope_clm_ER_shrub
 
-# set name for run; this is prefix for all files output 
+## copy CLM input files
+file copy -force ../clm_input/drv_clmin.dat .
+file copy -force ../clm_input/drv_vegm.shrub.dat drv_vegm.dat
+file copy -force ../clm_input/drv_vegp.dat .
+
+# set name for run; this is prefix for all files output
 # and will match EcoSLIM input in slimin.txt
 pfrun hillslope_clm_ER_shrub
 pfundist hillslope_clm_ER_shrub
-
-
+cd ..
