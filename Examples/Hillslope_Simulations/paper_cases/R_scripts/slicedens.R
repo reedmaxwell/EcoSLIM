@@ -1,4 +1,5 @@
 
+#This is a function for making waterfall plots. Its sourced from Waterfall_4panel_Plot.R
 # x, y, z: data
 # slices: number of horizontal slices through the data
 # lboost: coefficient to increase the height of the lines
@@ -53,9 +54,9 @@ slicedens<-function(x,y,z=NULL,slices=50,lboost=1,gboost=1,
   plot( c(min(x)-((max(x)-min(x))/10),max(x)+((max(x)-min(x))/10)),
         c(0,height),
         yaxt="n",ylab=ylab,xlab=xlab,yaxt='n',xlim=c(0,10),main=main)
-        
+
 #        axis(2, at=(0:(slices-1)*yinc), labels=yaxlab)
-        
+
 #        axis(2, at=c(0,1,2,3,4,5,6,7,8,9,10,11), #labels=c("OCT","NOV","DEC","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP"))
 axis(2, at=(0:(slices-1)*yinc), labels=F)  labseq=seq(0, (slices-1), 2)  axis(2, at=(labseq*yinc), labels=yaxlab[(labseq+1)])
 
@@ -102,8 +103,8 @@ axis(2, at=(0:(slices-1)*yinc), labels=F)  labseq=seq(0, (slices-1), 2)  a
     		#gy<-(i-1)*(height)*yinc
     		gy<-(i-1)*yinc
     	}
-    	
-    	
+
+
     if (transprop) {
       trange <- tmax-tmin
       if (is.null(nrow(ifcol)))
@@ -134,4 +135,3 @@ axis(2, at=(0:(slices-1)*yinc), labels=F)  labseq=seq(0, (slices-1), 2)  a
     })
   }
 }
-
