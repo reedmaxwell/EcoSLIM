@@ -7,8 +7,8 @@ library("MASS")
 library(fields)
 rm(list=ls())
 
-## you may need to edit the working directory 
-setwd('~/EcoSLIM/Examples/Hillslope_Simulations/paper_cases/R_scripts')
+## you may need to edit the working directory  uncomment and adjust as needed
+##setwd('~/EcoSLIM/Examples/Hillslope_Simulations/paper_cases/R_scripts')
 source("./slicedens.R")
 
 months=c("OCT","NOV","DEC","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP")
