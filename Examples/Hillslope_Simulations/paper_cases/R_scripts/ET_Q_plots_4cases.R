@@ -3,8 +3,8 @@
 
 ##This script loads in EcoSLIM output and makes Figures 2 and 3 from Maxwell et al Ecohydrology 2018
 
-## you may need to edit the working directory 
-setwd('~/EcoSLIM/Examples/Hillslope_Simulations/paper_cases/R_scripts')
+## you may need to edit the working directory, uncomment and adjust as needed
+## setwd('~/EcoSLIM/Examples/Hillslope_Simulations/paper_cases/R_scripts')
 
 ## load shrubs with ER forcing
 filename='../ER_hillslope_shrub/SLIM_hillslope_ER_shrub_ET_output.txt'
