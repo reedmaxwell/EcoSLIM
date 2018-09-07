@@ -197,4 +197,4 @@ The *Examples* folder contains the following test cases. A short description
 is provided here. For more details on how to run the examples refer to the
 readme files in that directory.
 1. **ParFlow_SteadyFlux**: A hillslope domain with constant recharge and ET applied at the top and bottom of the hill respectively.  Example is setup to run *EcoSLIM* on transient *ParFlow* outputs without *CLM*. The documentation for this example includes all the steps for running *ParFlow* and *EcoSLIM*
-2. **Hillslope_Simulations/paper_cases**:Hillslope Cases Run in Maxwell et al 2018, see readme file for more details
+2. **Hillslope_Simulations/paper_cases**:Hillslope Cases Run in [Maxwell et al. Ecohydrology](https://doi.org/10.1002/eco.2042), see readme file for more details

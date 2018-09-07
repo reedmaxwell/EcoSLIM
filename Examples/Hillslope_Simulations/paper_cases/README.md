@@ -15,7 +15,7 @@ set threads (in this case 4):
 export OMP_NUM_THREADS=4
 ```
 
-run EcoSLIM
+run EcoSLIM (note the relative path, e.g.):
 ```
 ../../../../EcoSLIM.exe
 ```
