@@ -906,13 +906,14 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
 
         ! assign zero time and flux of water
         ! time is assigned randomly over the recharge time to represent flux over the
-        ! PF DT
-        P(ii,4) = 0.0d0 +ran1(ir)*pfdt
+        ! PF DT unless we are running SS then have all particles start at the same time
+        P(ii,4) = 0.0d0
+        if (iflux_p_res >= 0) P(ii,4) = 0.0d0 +ran1(ir)*pfdt
         P(ii,5) = 0.0d0
         ! mass of water flux into the cell divided up among the particles assigned to that cell
         !P(ii,6) = (1.0d0/float(iflux_p_res))   &
           !        *P(ii,4)*EvapTrans(i,j,k)*dx*dy*dz(k)*denh2o  !! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass
-        P(ii,6) = (1.0d0/float(iflux_p_res))   &
+        P(ii,6) = (1.0d0/float(abs(iflux_p_res)))   &
                     *pfdt*EvapTrans(i,j,k)*dx*dy*dz(k)*denh2o  !! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass
         !! check if input is rain or snowmelt
         if(CLMvars(i,j,11) > 0.0) then !this is snowmelt
