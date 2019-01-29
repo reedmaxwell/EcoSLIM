@@ -634,6 +634,9 @@ write(filenum,'(i5.5)') pfkk
 fname=trim(adjustl(pname))//'.out.satur.'//trim(adjustl(filenum))//'.pfb'
 call pfb_read(Saturation,fname,nx,ny,nz)
 
+! Intialize random seed
+ir = -3333
+
 !! Define initial particles' locations and mass
 !!
 if (np_ic > 0)  then
@@ -641,7 +644,6 @@ np_active = 0
 
 PInLoc=0.0d0
 !call srand(333)
-ir = -3333
 do i = 1, nx
 do j = 1, ny
 do k = 1, nz
