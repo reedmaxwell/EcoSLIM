@@ -6,8 +6,8 @@
 !
 ! Developed by: Reed Maxwell-August 2016 (rmaxwell@mines.edu)
 !
-! Contributors: Mohammad Danesh-Yazdi (danesh@mines.edu)
-!               Laura Condon (lecondon@syr.edu)
+! Contributors: Laura Condon (lecondon@email.arizona.edu)
+!               Mohammad Danesh-Yazdi (danesh@sharif.edu)
 !               Lindsay Bearup (lbearup@usbr.gov)
 !
 ! released under GNU LPGL, see LICENSE file for details
@@ -648,6 +648,7 @@ do i = 1, nx
 do j = 1, ny
 do k = 1, nz
   if (np_active < np) then   ! check if we have particles left
+  if (Saturation(i,j,k) > 0.0) then ! check if we are in the active domain
   do ij = 1, np_ic
   np_active = np_active + 1
   ii = np_active
@@ -679,6 +680,7 @@ do k = 1, nz
         C(4,i,j,k) = C(4,i,j,k) + P(ii,8)*P(ii,7)*P(ii,6)
         C(3,i,j,k) = C(3,i,j,k) + P(ii,8)*P(ii,6)
 end do   ! particles per cell
+end if   !  active domain
 else
   write(11,*) ' **Warning IC input but no paricles left'
   write(11,*) ' **Exiting code gracefully writing restart '
