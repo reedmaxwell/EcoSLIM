@@ -1,0 +1,4 @@
+*.o
+*.exe
+*.mod
+*.DS_Store
