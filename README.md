@@ -74,7 +74,7 @@ the simulation will exit.
 * **Ending ParFlow File Number (pft2):** The file number for the *ParFlow* output to stop the *EcoSLIM* simulation at.
 * **EcoSLIM Output Start Counter (tout1):** This initializes the file numbering for the *EcoSLIM* outputs. If this is set to zero then the first *EcoSLIM* output number will be set to match  starting *ParFlow* file number specified above.
 * **Time Sequence Repeat (n_cycle):** If the time sequence repeat is greater than one the
-*ParFlow* inputs from *pft1* to *pft2* will be repeated the specified *n_cycle* times. (i.e. the total number of time steps simulated will be *n_cycle(pft2-pft1)*)
+*ParFlow* inputs from *pft1* to *pft2* will be repeated the specified *n_cycle* times. (i.e. the total number of time steps simulated will be *n_cycle(pft2-pft1+1)*)
 * **ASCII 3-D Particle File Output Frequency (ipwrite):** Controls ASCII output of particle locations and ages. This output format is not recommended for performance reasons. Refer to the *Outputs* section for the details on this output. If frequency is set to 0 this output will not be written at all, 1 will write the output every timestep, n>1 will write the output every n timesteps (i.e. n=2 writes outputs every other step). If n<0 then all outputs will be written to one file; useful for truly steady state simulation. (Transient outputs files: `runname_transient_particle.filenum.3D`, static output files: `runname_total_particle_trace.3D`)
 * **Particle VTK Output Frequency (ibinpntswrite):** Controls VTK, binary output of particle locations and attributes (`runname_pnts_filenum.vtk`).  Refer to the *Outputs* section for the details on this output. If frequency is set to 0 this output will not be written at all, 1 will write the output every timestep, n>1 will write the output every n timesteps (i.e. n=2 writes outputs every other step)
 * **Gridded ASCII ET Output Frequency (etwrite):** Controls ASCII grid based ET output (`runname_ET_summary.filenum.out.txt`). Refer to the *Outputs* section for the details on this output. If frequency is set to 0 this output will not be written at all, 1 will write the output every timestep, n>1 will write the output every n timesteps (i.e. n=2 writes outputs every other step)
@@ -105,7 +105,7 @@ SLIM_hillslope   ! SLIM run name, path to ParFlow files follows, then DEM file
 1          ! ParFlow t1: ParFlow file number to start from (initial condition is pft1-1)
 1752       ! ParFlow t2: ParFlow file number to stop at
 1          ! EcoSLIM output start counter 0=pft1
-2          ! Time Sequence Repeat [n_cycle*(pft2-pft1)]
+2          ! Time Sequence Repeat (n_cycle) Total number of time steps = [n_cycle*(pft2-pft1+1)]
 0         ! ipwrite frequency, controls an ASCII, .3D particle file not recommended due to poor performance
 0         ! ibinpntswrite frequency, controls VTK, binary output of particle locations and attributes
 0         !  etwrite frequency, controls ASCII ET output
@@ -126,6 +126,7 @@ Outputs
   * File name: `runname.out.log`
 + **Restart:** Binary file containing all the particle information for all active particles at the end of the simulation.
   * File name: `runname_particle_restart.bin`
+  * The first entry gives the number of particles in the restart file
   * Variables:  *X, Y, Z, Age, Saturated_Age, Mass, Source, Status, Particle_Concentration, Exit_Status*
 + **Exited Particles Log:**
   * File name: `runname_exited_particles.bin`

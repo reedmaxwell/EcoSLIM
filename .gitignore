@@ -2,3 +2,6 @@
 *.exe
 *.mod
 *.DS_Store
+Examples/ParFlow_SteadyFlux/spinup0.00125
+Examples/ParFlow_SteadyFlux/transient0.00125
+Examples/ParFlow_SteadyFlux/EcoSLIM0.00125
