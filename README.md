@@ -63,7 +63,7 @@ include the directory path to the *ParFlow* simulation as shown in the example b
 * **ParFlow nz (nz):**  Number of grid cells in the z-direction for *ParFlow* domain
 * **Number of Initial Particles (np_ic):** If a positive integer is provided this will be the number of particles placed in every grid cell at the start of the simulation. To start from a previous
 *EcoSLIM* output set this value to -1. In this case particles will be initialized from the
-`runname_particle_restart.bin` file (refer to the outputs section for details on this file).  
+`runname_particle_restart.bin` file (refer to the outputs section for details on this file).  If a negative integer less than <-1 is provided this number of particles will be placed in every grid cell in the top layer of the model.
 * **Total Particles (np)**: The total number of particles allowed in the simulation. If the particle count exceeds this at any point (i.e. through particle addition with initial conditions or rainfall events)
 the simulation will exit.
 * **ParFlow dx (dx):** *ParFlow* grid cell size in the x-direction
@@ -127,10 +127,10 @@ Outputs
 + **Restart:** Binary file containing all the particle information for all active particles at the end of the simulation.
   * File name: `runname_particle_restart.bin`
   * The first entry gives the number of particles in the restart file
-  * Variables:  *X, Y, Z, Age, Saturated_Age, Mass, Source, Status, Particle_Concentration, Exit_Status*
+  * Variables:  *X, Y, Z, Age, Saturated_Age, Mass, Source, Status, Particle_Concentration, Exit_Status, ParticleID, InitialX, InitialY, InitialZ*
 + **Exited Particles Log:**
   * File name: `runname_exited_particles.bin`
-  * Variables: *Time, X, Y, Z, Age, Mass, Comp, Exit_Status*
+  * Variables: *Time, X, Y, Z, Age, Saturated_Age, Mass, Source, Exit_Status, ParticleID, InitialX, InitialY, InitialZ*
 + **ET summary:** Spatially aggregated summary of ET flux composition
   * File name: `runname_ET_output.txt`
   * Variables: Time (*TIME*), mass weighted mean ET age (*ET_age*), mass fraction of ET from initial condition particles (*ET_comp1*), mass fraction of ET from rain particles (*ET_comp2*), mass fraction of ET from snow particles (*ET_comp3*), total ET mass (*ET_mass*), total number of ET particles (*ET_NP*)

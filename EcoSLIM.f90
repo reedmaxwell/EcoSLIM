@@ -93,6 +93,10 @@ real*8,allocatable::P(:,:)
         ! P(np,8) = Particle Status (1=active, 0=inactive)
         ! P(np,9) = concentration
         ! P(np,10) = Exit status (1=outflow, 2=ET...)
+        ! P(np,11) = Particle Number (This is a unique integer identifier for the particle)
+        ! P(np,12) = Partical Initial X coordinate [L]
+        ! P(np,13) = Partical Initial Y coordinate [L]
+        ! P(np,14) = Partical Initial Z coordinate [L]
 
 !@ RMM, why is this needed?
 real*8,allocatable::PInLoc(:,:)
@@ -144,6 +148,9 @@ integer np_ic, np, np_active, np_active2, icwrite, jj, npnts, ncell, npout
 
 integer nt, n_constituents
         ! number of timesteps ParFlow; numer of C vectors written for VTK output
+
+real*8  pid
+        ! Counter for particl ID number
 
 real*8  pfdt, advdt(3)
         ! ParFlow timestep value, advection timestep for each direction
@@ -384,10 +391,12 @@ write(11,*) 'np:',np
 
 
 ! allocate P, Sx, dz, Vx, Vy, Vz, Saturation, and Porosity arrays
-allocate(P(np,10))
+allocate(P(np,14))
 P(1:np,1:6) = 0.0    ! clear out all particle attributes
 P(1:np,7:9) = 1.0  ! make all particles active to start with and original from 1 = GW/IC
 P(1:np,10) = 0.0   ! no exit
+P(1:np,11:14) = 0.0   ! Clear initial ID and location
+
 
 ! grid +1 variables
 nnx=nx+1
@@ -641,6 +650,7 @@ ir = -3333
 !!
 if (np_ic > 0)  then
 np_active = 0
+pid = 0.0d0
 
 PInLoc=0.0d0
 !call srand(333)
@@ -651,13 +661,18 @@ do k = 1, nz
   if (Saturation(i,j,k) > 0.0) then ! check if we are in the active domain
   do ij = 1, np_ic
   np_active = np_active + 1
+  pid=pid + 1.0
   ii = np_active
+  P(ii,11)=pid !Saving a particle ID number
   ! assign X, Y, Z locations randomly to each cell
   ! assign X, Y, Z locations randomly to each cell
  P(ii,1) = float(i-1)*dx  +ran1(ir)*dx
  PInLoc(ii,1) = P(ii,1)
+ P(ii,12)=P(ii,1) ! Saving the initial location
  P(ii,2) = float(j-1)*dy  +ran1(ir)*dy
  PInLoc(ii,2) = P(ii,2)
+ P(ii,13)=P(ii,2) ! Saving the initial location
+
   Z = 0.0d0
   do ik = 1, k
   Z = Z + dz(ik)
@@ -665,6 +680,7 @@ do k = 1, nz
 
   P(ii,3) = Z -dz(k)*ran1(ir)
   PInLoc(ii,3) = P(ii,3)
+  P(ii,14)=P(ii,3) ! Saving the initial location
 
         ! assign mass of particle by the volume of the cells
         ! and the water contained in that cell
@@ -702,6 +718,7 @@ else if (np_ic == -1) then
   if (np_active < np) then   ! check if we have particles left
   !do ii = 1, np_active
             read(116)  P(1:np_active,1:10)
+            pid = np_active
   !end do !11
   close(116)
   else
@@ -717,6 +734,7 @@ flush(11)
 !!
 if (np_ic < -1)  then
 np_active = 0
+pid = np_active
 
 PInLoc=0.0d0
 !call srand(333)
@@ -728,13 +746,17 @@ k = nz
   !if (saturation(i,j,k) >= 0.95d0)  then
   do ij = 1, abs(np_ic)
   np_active = np_active + 1
+  pid = pid +1.0
   ii = np_active
+  P(ii,11) = pid
   ! assign X, Y, Z locations randomly to each cell
   ! assign X, Y, Z locations randomly to each cell
  P(ii,1) = float(i-1)*dx  +ran1(ir)*dx
  PInLoc(ii,1) = P(ii,1)
+ P(ii,12)=P(ii,1) ! Saving the initial location
  P(ii,2) = float(j-1)*dy  +ran1(ir)*dy
  PInLoc(ii,2) = P(ii,2)
+ P(ii,13)=P(ii,2) ! Saving the initial location
   Z = 0.0d0
   do ik = 1, k
   Z = Z + dz(ik)
@@ -742,6 +764,7 @@ k = nz
 
   P(ii,3) = Z !-dz(k)*ran1(ir)
   PInLoc(ii,3) = P(ii,3)
+  P(ii,14)=P(ii,3) ! Saving the initial location
 
         ! assign mass of particle by the volume of the cells
         ! and the water contained in that cell
@@ -893,13 +916,17 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
         do ji = 1, iflux_p_res
         if (np_active < np) then   ! check if we have particles left
         np_active = np_active + 1
+        pid = pid + 1.0
         ii = np_active             ! increase total number of particles
+        P(ii,11) = pid
         i_added_particles = i_added_particles + 1   ! increase particle counter for accounting
         ! assign X, Y locations randomly to recharge cell
         P(ii,1) = float(i-1)*dx  +ran1(ir)*dx
         PInLoc(ii,1) = P(ii,1)
+        P(ii,12)=P(ii,1) ! Saving the initial location
         P(ii,2) = float(j-1)*dy  +ran1(ir)*dy
         PInLoc(ii,2) = P(ii,2)
+        P(ii,13)=P(ii,2) ! Saving the initial location
         Z = 0.0d0
         do ik = 1, k
         Z = Z + dz(ik)
@@ -907,6 +934,7 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
         ! Z location is fixed
         P(ii,3) = Z -dz(k)*0.5d0 !  *ran1(ir)
         PInLoc(ii,3) = P(ii,3)
+        P(ii,14)=P(ii,3) ! Saving the initial location
 
         ! assign zero time and flux of water
         ! time is assigned randomly over the recharge time to represent flux over the
@@ -1248,9 +1276,9 @@ if(ipwrite > 0) then
 if(mod(kk,ipwrite) == 0)  then
 ! open/create/write the 3D output file
 open(14,file=trim(runname)//'_transient_particle.'//trim(adjustl(filenumout))//'.3D')
-write(14,*) 'X Y Z TIME'
+write(14,*) 'X Y Z TIME ID'
 do ii = 1, np_active
-if (P(ii,8) == 1) write(14,61) P(ii,1), P(ii,2), P(ii,3), P(ii,4)
+if (P(ii,8) == 1) write(14,61) P(ii,1), P(ii,2), P(ii,3), P(ii,4), P(ii,11)
 end do
 close(14)
 end if
@@ -1328,7 +1356,8 @@ do ii = 1, np_active
   !write(114) sngl(Time_Next(kk)), sngl(P(ii,1)), sngl(P(ii,2)), sngl(P(ii,3)), &
   !        sngl(P(ii,4)), sngl(P(ii,6)), sngl(P(ii,7)), sngl(P(ii,10))
           write(114) Time_Next(kk), P(ii,1), P(ii,2), P(ii,3), &
-                  P(ii,4), P(ii,6), P(ii,7), P(ii,10)
+                  P(ii,4), P(ii,5), P(ii,6), P(ii,7), P(ii,10),  &
+                   P(ii,11), P(ii,12), P(ii,13), P(ii,14)
           npout = npout + 1
 
 !  !$OMP CRITICAL
@@ -1397,7 +1426,7 @@ open(116,file=trim(runname)//'_particle_restart.bin', FORM='unformatted',  &
     access='stream')
 write(116) np_active
 !do ii = 1, np_active
-          write(116)  P(1:np_active,1:10)
+          write(116)  P(1:np_active,1:14)
 !end do !11
 close(116)
 
