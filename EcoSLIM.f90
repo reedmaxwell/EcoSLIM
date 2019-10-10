@@ -1216,7 +1216,7 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
                         ! write all active particles at concentration in ASCII VisIT 3D file format continuously
                         ! as noted above, this option is very slow compared to VTK binary output
                         if (ipwrite < 0) then
-                          if (P(ii,8) == 1.0d0) write(214,61) P(ii,1), P(ii,2), P(ii,3), P(ii,4)
+                          if (P(ii,8) == 1.0d0) write(214,61) P(ii,1), P(ii,2), P(ii,3), P(ii,4), P(ii,11)
                         flush(214)
                       end if !! ipwrite
 

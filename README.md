@@ -142,14 +142,14 @@ Outputs
     * Variables: Time (*TIME*), total precipitation mass (*P[kg]*), total evapotranspiration mass (*ET[kg]*)
 + **Particle ASCII:** Detailed output of every particle in ascii FORMAT written to a single file.
   * File name:`runname_particletrace.3D`
-  * Variables: *X, Y, Z, Age*
+  * Variables: *X, Y, Z, Age, ParticleID*
   * Note: This format is very slow in parallel and is NOT advised for large particle numbers. This file is only written if *ipwrite* is less than zero in `slimin.txt`
 
 ### Transient File Outputs
 Transient files outputs are written at the frequencies specified in the slimin.txt file (see: *ibinpntswrite*, *icwrite*, *etwrite*, *ipwrite*)
 + **Particle VTK**: Detailed output of every particle in VTK format
   * File name: `runname_pnts_filenum.vtk`
-  * Variables: *X, Y, Z, Age, Saturated_Age, Mass, Source, Status, Particle_Concentration, Exit_Status*
+  * Variables: *X, Y, Z, Age, Saturated_Age, Mass, Source, Status, Particle_Concentration, Exit_Status,ParticleID, InitialX, InitialY, InitialZ *
 + **Gridded VTK** : Gridded summary of model outputs in VTK format
   * File name: `runname_cgrid_filenum.vtk`
   * Variables: *Grid_Particle_Concentration, Mean_Age, Grid_Mass, Mean_Source, Grid_Concentration, ET_Particles, ET_Mass, ET_Age, ET_Source*
@@ -159,7 +159,7 @@ Transient files outputs are written at the frequencies specified in the slimin.t
   * Note: ET variables are defined below, saturation and porosity are from the *ParFlow* inputs.
 + **Particle ASCII:** Detailed output of every particle in ascii FORMAT
   * File name: `runname_transient_particle.filenum.3D`
-  * Variables: *X, Y, Z, Age*
+  * Variables: *X, Y, Z, Age, ParticlID*
   * Note: This format is very slow in parallel and is not advised for large particle numbers
 
 ### Output Variable Definitions
@@ -168,6 +168,7 @@ Transient files outputs are written at the frequencies specified in the slimin.t
 +  *Y* = Y coordinate [L]
 +  *Z* = Z coordinate relative to the bottom of the domain (i.e. not taking the DEM into account) [L]
 +  *Age* = Particle Residence Time [T]
++  *ParticleID* = Unique particle identifier [-]
 +  *Saturated_Age*= Total time that particle spends in saturated cells [T]
 +  *Mass*= Particle Mass [M]
 +  *Source* = Particle source type (1= particles initialized in the domain, 2=particles added by a rain event, 3= particles added by a snow event) [-]
