@@ -97,6 +97,9 @@ real*8,allocatable::P(:,:)
         ! P(np,12) = Partical Initial X coordinate [L]
         ! P(np,13) = Partical Initial Y coordinate [L]
         ! P(np,14) = Partical Initial Z coordinate [L]
+        ! P(np,15) = Time that particle was added [T]
+        ! P(np,16) = Length of flow path [L]
+        ! P(np,17) = Length of saturated flow path [L]
 
 !@ RMM, why is this needed?
 real*8,allocatable::PInLoc(:,:)
@@ -161,8 +164,9 @@ integer pft1, pft2, tout1, pfnt, n_cycle
         ! flag specifying the number for the first output write (0= start with pft1)
         ! number of timestep cycles
 
-real*8  Time_first
+real*8  Time_first, part_tstart
         ! initial timestep for Parflow ((pft1-1)*pfdt)
+        ! initial time for particles (used for recording the particle insert time)
 
 integer kk
         ! Loop counter for the time steps (pfnt)
@@ -391,12 +395,13 @@ write(11,*) 'np:',np
 
 
 ! allocate P, Sx, dz, Vx, Vy, Vz, Saturation, and Porosity arrays
-allocate(P(np,14))
+allocate(P(np,17))
 P(1:np,1:6) = 0.0    ! clear out all particle attributes
 P(1:np,7:9) = 1.0  ! make all particles active to start with and original from 1 = GW/IC
 P(1:np,10) = 0.0   ! no exit
 P(1:np,11:14) = 0.0   ! Clear initial ID and location
-
+P(1:np,15) = 0.0   ! Set initial start time to zero
+P(1:np,16:17) = 0.0   ! Set initial lengths to zero
 
 ! grid +1 variables
 nnx=nx+1
@@ -446,6 +451,7 @@ read(10,*) pfdt
 read(10,*) pft1
 read(10,*) pft2
 read(10,*) tout1
+read(10,*) part_tstart
 read(10,*) n_cycle
 
 pfnt=n_cycle*(pft2-pft1+1)
@@ -671,7 +677,8 @@ do k = 1, nz
  P(ii,12)=P(ii,1) ! Saving the initial location
  P(ii,2) = float(j-1)*dy  +ran1(ir)*dy
  PInLoc(ii,2) = P(ii,2)
- P(ii,13)=P(ii,2) ! Saving the initial location
+ P(ii,13)=P(ii,2)
+ P(ii,15) = part_tstart + 0.0 !setting insert time to the start time
 
   Z = 0.0d0
   do ik = 1, k
@@ -717,7 +724,7 @@ else if (np_ic == -1) then
   read(116) np_active
   if (np_active < np) then   ! check if we have particles left
   !do ii = 1, np_active
-            read(116)  P(1:np_active,1:10)
+            read(116)  P(1:np_active,1:17)
             pid = np_active
   !end do !11
   close(116)
@@ -757,6 +764,7 @@ k = nz
  P(ii,2) = float(j-1)*dy  +ran1(ir)*dy
  PInLoc(ii,2) = P(ii,2)
  P(ii,13)=P(ii,2) ! Saving the initial location
+ P(ii,15) = part_tstart + 0.0 !setting insert time to the start time
   Z = 0.0d0
   do ik = 1, k
   Z = Z + dz(ik)
@@ -942,6 +950,7 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
         P(ii,4) = 0.0d0
         if (iflux_p_res >= 0) P(ii,4) = 0.0d0 +ran1(ir)*pfdt
         P(ii,5) = 0.0d0
+        P(ii,15) = part_tstart + (kk-1)*pfdt + P(ii,4) !recording particle insert time
         ! mass of water flux into the cell divided up among the particles assigned to that cell
         !P(ii,6) = (1.0d0/float(iflux_p_res))   &
           !        *P(ii,4)*EvapTrans(i,j,k)*dx*dy*dz(k)*denh2o  !! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass
@@ -1197,6 +1206,10 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
                         P(ii,1) = P(ii,1) + z1 * DSQRT(moldiff*2.0D0*particledt)
                         P(ii,2) = P(ii,2) + z2 * DSQRT(moldiff*2.0D0*particledt)
                         P(ii,3) = P(ii,3) + z3 * DSQRT(moldiff*2.0D0*particledt)
+
+                        !Calcuate the distance travelled
+                        P(ii,16) = P(ii,16) + DSQRT((particledt*Vpx)**2 + (particledt*Vpy)**2 + (particledt*Vpz)**2) &
+                                  +  DSQRT((z1*DSQRT(moldiff*2.0D0*particledt))**2 + (z2*DSQRT(moldiff*2.0D0*particledt))**2 + (z3*DSQRT(moldiff*2.0D0*particledt))**2)
                         end if
 
 !!  placeholder for other interactions; potentially added later
@@ -1204,7 +1217,10 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
 !!                        if (Ploc(3) == nz-1)  P(ii,9) = P(ii,9) -Efract*particledt*CLMvars(Ploc(1)+1,Ploc(2)+1,7)
 !!
                         ! place to track saturated / groundwater time if needed
-                        if(Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) == 1.0) P(ii,5) = P(ii,5) + particledt
+                        if(Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) == 1.0) then
+                           P(ii,5) = P(ii,5) + particledt
+                           P(ii,17) = P(ii,17) + P(ii,16) !also tracking length in the saturate zone
+                        end if
                         ! simple reflection boundary
                         if (P(ii,3) >=Zmax) P(ii,3) = Zmax- (P(ii,3) - Zmax)
                         if (P(ii,1) >=Xmax) P(ii,1) = Xmax- (P(ii,1) - Xmax)
@@ -1357,7 +1373,7 @@ do ii = 1, np_active
   !        sngl(P(ii,4)), sngl(P(ii,6)), sngl(P(ii,7)), sngl(P(ii,10))
           write(114) Time_Next(kk), P(ii,1), P(ii,2), P(ii,3), &
                   P(ii,4), P(ii,5), P(ii,6), P(ii,7), P(ii,10),  &
-                   P(ii,11), P(ii,12), P(ii,13), P(ii,14)
+                   P(ii,11), P(ii,12), P(ii,13), P(ii,14), P(ii,15), P(ii,16), P(ii,17)
           npout = npout + 1
 
 !  !$OMP CRITICAL
@@ -1426,7 +1442,7 @@ open(116,file=trim(runname)//'_particle_restart.bin', FORM='unformatted',  &
     access='stream')
 write(116) np_active
 !do ii = 1, np_active
-          write(116)  P(1:np_active,1:14)
+          write(116)  P(1:np_active,1:17)
 !end do !11
 close(116)
 
