@@ -13,6 +13,7 @@ SLIM_flux_test   ! SLIM run name
 1        ! Parflow t1: ParFlow file number to start from (initial condition is pft1-1)
 3000        ! Parflow t2: ParFlow file number to stop at
 0          ! EcoSLIM output start counter 0=pft1
+0.0        ! Particle start time counter (for recording particle insert times)
 1          ! Time Sequence Repeat [n_cycle*(pft2-pft1)]
 0         ! ipwrite frequency, controls an ASCII, .3D particle file not recommended due to poor performance
 1         ! ibinpntswrite frequency, controls VTK, binary output of particle locations and attributes
