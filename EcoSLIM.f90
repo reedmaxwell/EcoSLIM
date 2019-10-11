@@ -950,7 +950,7 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
         P(ii,4) = 0.0d0
         if (iflux_p_res >= 0) P(ii,4) = 0.0d0 +ran1(ir)*pfdt
         P(ii,5) = 0.0d0
-        P(ii,15) = part_tstart + (kk-1)*pfdt + P(ii,4) !recording particle insert time
+        P(ii,15) = part_tstart + float((kk-1))*pfdt + P(ii,4) !recording particle insert time
         ! mass of water flux into the cell divided up among the particles assigned to that cell
         !P(ii,6) = (1.0d0/float(iflux_p_res))   &
           !        *P(ii,4)*EvapTrans(i,j,k)*dx*dy*dz(k)*denh2o  !! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass
