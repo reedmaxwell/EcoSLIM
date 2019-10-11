@@ -1208,8 +1208,10 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
                         P(ii,3) = P(ii,3) + z3 * DSQRT(moldiff*2.0D0*particledt)
 
                         !Calcuate the distance travelled
-                        P(ii,16) = P(ii,16) + DSQRT((particledt*Vpx)**2 + (particledt*Vpy)**2 + (particledt*Vpz)**2) &
-                                  +  DSQRT((z1*DSQRT(moldiff*2.0D0*particledt))**2 + (z2*DSQRT(moldiff*2.0D0*particledt))**2 + (z3*DSQRT(moldiff*2.0D0*particledt))**2)
+                        P(ii,16) = P(ii,16) + DSQRT((particledt*Vpx)**2 + (particledt*Vpy)**2 + &
+                                   (particledt*Vpz)**2)+ DSQRT((z1*DSQRT(moldiff*2.0D0*particledt))**2 &
+                                   + (z2*DSQRT(moldiff*2.0D0*particledt))**2 + &
+                                   (z3*DSQRT(moldiff*2.0D0*particledt))**2)
                         end if
 
 !!  placeholder for other interactions; potentially added later
