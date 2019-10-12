@@ -736,12 +736,13 @@ else if (np_ic == -1) then
   open(116,file=trim(runname)//'_particle_restart.bin', FORM='unformatted',  &
       access='stream')
   read(116) np_active
+  read(116) pid
   if (np_active < np) then   ! check if we have particles left
   !do ii = 1, np_active
             read(116)  P(1:np_active,1:17)
   !end do !11
   close(116)
-              pid = np_active
+              !pid = np_active
   else
     write(11,*) ' **Warning restart IC input but no paricles left'
     write(11,*) ' **Exiting code *not* (over)writing restart '
@@ -1463,6 +1464,7 @@ call system_clock(T1)
 open(116,file=trim(runname)//'_particle_restart.bin', FORM='unformatted',  &
     access='stream')
 write(116) np_active
+write(116) pid
 !do ii = 1, np_active
           write(116)  P(1:np_active,1:17)
 !end do !11
