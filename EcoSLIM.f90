@@ -152,8 +152,8 @@ integer np_ic, np, np_active, np_active2, icwrite, jj, npnts, ncell, npout
 integer nt, n_constituents
         ! number of timesteps ParFlow; numer of C vectors written for VTK output
 
-real*8  pid
-        ! Counter for particl ID number
+integer  pid
+        ! Counter for particle ID number
 
 real*8  pfdt, advdt(3)
         ! ParFlow timestep value, advection timestep for each direction
@@ -668,7 +668,7 @@ write(11,*) '## Debug0'
 write(11,'("NPactive:",i12)') np_active
 if (np_ic > 0)  then
 np_active = 0
-pid = 0.0d0
+pid = 0
 
 PInLoc=0.0d0
 !call srand(333)
@@ -679,9 +679,9 @@ do k = 1, nz
   if (Saturation(i,j,k) > 0.0) then ! check if we are in the active domain
   do ij = 1, np_ic
   np_active = np_active + 1
-  pid=pid + 1.0
+  pid=pid + 1
   ii = np_active
-  P(ii,11)=pid !Saving a particle ID number
+  P(ii,11)=float(pid) !Saving a particle ID number
   ! assign X, Y, Z locations randomly to each cell
   ! assign X, Y, Z locations randomly to each cell
  P(ii,1) = float(i-1)*dx  +ran1(ir)*dx
@@ -771,9 +771,9 @@ k = nz
   !if (saturation(i,j,k) >= 0.95d0)  then
   do ij = 1, abs(np_ic)
   np_active = np_active + 1
-  pid = pid +1.0
+  pid = pid +1
   ii = np_active
-  P(ii,11) = pid
+  P(ii,11) = float(pid)
   ! assign X, Y, Z locations randomly to each cell
   ! assign X, Y, Z locations randomly to each cell
  P(ii,1) = float(i-1)*dx  +ran1(ir)*dx
@@ -945,7 +945,7 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
         do ji = 1, iflux_p_res
         if (np_active < np) then   ! check if we have particles left
         np_active = np_active + 1
-        pid = pid + 1.0
+        pid = pid + 1
         ii = np_active             ! increase total number of particles
         P(ii,11) = pid
         i_added_particles = i_added_particles + 1   ! increase particle counter for accounting
