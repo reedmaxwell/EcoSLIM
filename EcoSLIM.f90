@@ -363,6 +363,8 @@ else
 write(11,*) 'Not reading ParFlow DEM'
 end if
 write(11,*)
+write(11,*) '## Debug-2'
+write(11,'("NPactive:",i12)') np_active
 
 ! read domain number of cells and number of particles to be injected
 read(10,*) nx
@@ -554,6 +556,9 @@ write(11,'("dtfrac: ",e12.5," fraction of dx/Vx")') dtfrac
 ! end of SLIM input
 close(10)
 
+write(11,*) '## Debug-1'
+write(11,'("NPactive:",i12)') np_active
+
 call system_clock(T2)
 
 IO_time_read = IO_time_read + (T2-T1)
@@ -654,6 +659,13 @@ ir = -3333
 
 !! Define initial particles' locations and mass
 !!
+if (np_ic == 0)  then
+  np_active = 0
+  pid = np_active
+end if
+
+write(11,*) '## Debug0'
+write(11,'("NPactive:",i12)') np_active
 if (np_ic > 0)  then
 np_active = 0
 pid = 0.0d0
@@ -713,6 +725,8 @@ end if
 end do ! i
 end do ! j
 end do ! k
+write(11,*) '## Debug1'
+write(11,'("NPactive:",i12)') np_active
 
 !! if np_ic = -1 then we read a restart file
 else if (np_ic == -1) then
@@ -725,9 +739,9 @@ else if (np_ic == -1) then
   if (np_active < np) then   ! check if we have particles left
   !do ii = 1, np_active
             read(116)  P(1:np_active,1:17)
-            pid = np_active
   !end do !11
   close(116)
+              pid = np_active
   else
     write(11,*) ' **Warning restart IC input but no paricles left'
     write(11,*) ' **Exiting code *not* (over)writing restart '
@@ -735,6 +749,9 @@ else if (np_ic == -1) then
     stop
   end if
 end if
+
+write(11,*) '## Debug2'
+write(11,'("NPactive:",i12)') np_active
 flush(11)
 
 !! Define initial particles' locations by surface water
@@ -799,6 +816,9 @@ end do ! i
 end do ! j
 
 end if !! river IC
+
+write(11,*) '## Debug3'
+write(11,'("NPactive:",i12)') np_active
 
 ! Write out intial concentrations
 ! normalize ages by mass
