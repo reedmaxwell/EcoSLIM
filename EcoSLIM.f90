@@ -453,7 +453,7 @@ read(10,*) pfdt
 read(10,*) pft1
 read(10,*) pft2
 read(10,*) tout1
-read(10,*) part_tstart
+!read(10,*) part_tstart
 read(10,*) n_cycle
 
 pfnt=n_cycle*(pft2-pft1+1)
@@ -690,7 +690,7 @@ do k = 1, nz
  P(ii,2) = float(j-1)*dy  +ran1(ir)*dy
  PInLoc(ii,2) = P(ii,2)
  P(ii,13)=P(ii,2)
- P(ii,15) = part_tstart + 0.0 !setting insert time to the start time
+ !P(ii,15) = part_tstart + 0.0 !setting insert time to the start time
 
   Z = 0.0d0
   do ik = 1, k
@@ -743,6 +743,8 @@ else if (np_ic == -1) then
   !end do !11
   close(116)
               !pid = np_active
+              write(11,*) 'RESTART np_active :',np_active
+              write(11,*) 'RESTART pid:',pid
   else
     write(11,*) ' **Warning restart IC input but no paricles left'
     write(11,*) ' **Exiting code *not* (over)writing restart '
@@ -782,7 +784,7 @@ k = nz
  P(ii,2) = float(j-1)*dy  +ran1(ir)*dy
  PInLoc(ii,2) = P(ii,2)
  P(ii,13)=P(ii,2) ! Saving the initial location
- P(ii,15) = part_tstart + 0.0 !setting insert time to the start time
+ !P(ii,15) = part_tstart + 0.0 !setting insert time to the start time
   Z = 0.0d0
   do ik = 1, k
   Z = Z + dz(ik)
@@ -971,7 +973,7 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
         P(ii,4) = 0.0d0
         if (iflux_p_res >= 0) P(ii,4) = 0.0d0 +ran1(ir)*pfdt
         P(ii,5) = 0.0d0
-        P(ii,15) = part_tstart + float((kk-1))*pfdt + P(ii,4) !recording particle insert time
+        !P(ii,15) = part_tstart + float((kk-1))*pfdt + P(ii,4) !recording particle insert time
         ! mass of water flux into the cell divided up among the particles assigned to that cell
         !P(ii,6) = (1.0d0/float(iflux_p_res))   &
           !        *P(ii,4)*EvapTrans(i,j,k)*dx*dy*dz(k)*denh2o  !! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass
