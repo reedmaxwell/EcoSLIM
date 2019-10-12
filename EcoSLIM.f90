@@ -155,9 +155,10 @@ integer nt, n_constituents
 integer  pid
         ! Counter for particle ID number
 
-real*8  pfdt, advdt(3)
+real*8  pfdt, advdt(3), Ltemp
         ! ParFlow timestep value, advection timestep for each direction
         ! for each individual particle step; used to chose optimal particle timestep
+        ! Temporary storage for step length calculations
 
 integer pft1, pft2, tout1, pfnt, n_cycle
         ! parflow start and stop file numbers number of ParFlow timesteps
@@ -655,6 +656,9 @@ ir = -3333
 
 !Initialize np_active2
 np_active = 0
+
+!Initialize Ltemp
+Ltemp = 0.0
 
 !! Define initial particles' locations and mass
 !!
@@ -1214,6 +1218,12 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
                         P(ii,3) = P(ii,3) + particledt * Vpz
                         P(ii,4) = P(ii,4) + particledt
 
+                        !Calcuate the distance travelled
+                        Ltemp=DSQRT((particledt*Vpx)**2 + (particledt*Vpy)**2 + &
+                                   (particledt*Vpz)**2)
+                        !P(ii,16) = P(ii,16) + DSQRT((particledt*Vpx)**2 + (particledt*Vpy)**2 + &
+                              !     (particledt*Vpz)**2)
+
                         ! Molecular Diffusion
                         if (moldiff > 0.0d0) then
                         z1 = 2.d0*DSQRT(3.0D0)*(ran1(ir)-0.5D0)
@@ -1225,11 +1235,14 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
                         P(ii,3) = P(ii,3) + z3 * DSQRT(moldiff*2.0D0*particledt)
 
                         !Calcuate the distance travelled
-                        P(ii,16) = P(ii,16) + DSQRT((particledt*Vpx)**2 + (particledt*Vpy)**2 + &
-                                   (particledt*Vpz)**2)+ DSQRT((z1*DSQRT(moldiff*2.0D0*particledt))**2 &
+                        !P(ii,16) = P(ii,16) + DSQRT((z1*DSQRT(moldiff*2.0D0*particledt))**2 &
+                        !           + (z2*DSQRT(moldiff*2.0D0*particledt))**2 + &
+                        !           (z3*DSQRT(moldiff*2.0D0*particledt))**2)
+                        Ltemp=Ltemp+ DSQRT((z1*DSQRT(moldiff*2.0D0*particledt))**2 &
                                    + (z2*DSQRT(moldiff*2.0D0*particledt))**2 + &
                                    (z3*DSQRT(moldiff*2.0D0*particledt))**2)
                         end if
+                        P(ii,16) = P(ii,16) + Ltemp
 
 !!  placeholder for other interactions; potentially added later
 !!
@@ -1238,8 +1251,11 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
                         ! place to track saturated / groundwater time if needed
                         if(Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) == 1.0) then
                            P(ii,5) = P(ii,5) + particledt
-                           P(ii,17) = P(ii,17) + P(ii,16) !also tracking length in the saturate zone
+                           !also tracking length in the saturate zone
+                           P(ii,17) = P(ii,17) + Ltemp
                         end if
+
+                        Ltemp=0.0
                         ! simple reflection boundary
                         if (P(ii,3) >=Zmax) P(ii,3) = Zmax- (P(ii,3) - Zmax)
                         if (P(ii,1) >=Xmax) P(ii,1) = Xmax- (P(ii,1) - Xmax)
