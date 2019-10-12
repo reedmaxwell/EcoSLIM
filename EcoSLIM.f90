@@ -363,8 +363,6 @@ else
 write(11,*) 'Not reading ParFlow DEM'
 end if
 write(11,*)
-write(11,*) '## Debug-2'
-write(11,'("NPactive:",i12)') np_active
 
 ! read domain number of cells and number of particles to be injected
 read(10,*) nx
@@ -453,7 +451,7 @@ read(10,*) pfdt
 read(10,*) pft1
 read(10,*) pft2
 read(10,*) tout1
-!read(10,*) part_tstart
+read(10,*) part_tstart
 read(10,*) n_cycle
 
 pfnt=n_cycle*(pft2-pft1+1)
@@ -556,8 +554,6 @@ write(11,'("dtfrac: ",e12.5," fraction of dx/Vx")') dtfrac
 ! end of SLIM input
 close(10)
 
-write(11,*) '## Debug-1'
-write(11,'("NPactive:",i12)') np_active
 
 call system_clock(T2)
 
@@ -657,6 +653,9 @@ call pfb_read(Saturation,fname,nx,ny,nz)
 ! Intialize random seed
 ir = -3333
 
+!Initialize np_active2
+np_active = 0
+
 !! Define initial particles' locations and mass
 !!
 if (np_ic == 0)  then
@@ -664,8 +663,7 @@ if (np_ic == 0)  then
   pid = np_active
 end if
 
-write(11,*) '## Debug0'
-write(11,'("NPactive:",i12)') np_active
+
 if (np_ic > 0)  then
 np_active = 0
 pid = 0
@@ -690,7 +688,7 @@ do k = 1, nz
  P(ii,2) = float(j-1)*dy  +ran1(ir)*dy
  PInLoc(ii,2) = P(ii,2)
  P(ii,13)=P(ii,2)
- !P(ii,15) = part_tstart + 0.0 !setting insert time to the start time
+ P(ii,15) = part_tstart + 0.0 !setting insert time to the start time
 
   Z = 0.0d0
   do ik = 1, k
@@ -725,8 +723,6 @@ end if
 end do ! i
 end do ! j
 end do ! k
-write(11,*) '## Debug1'
-write(11,'("NPactive:",i12)') np_active
 
 !! if np_ic = -1 then we read a restart file
 else if (np_ic == -1) then
@@ -784,7 +780,7 @@ k = nz
  P(ii,2) = float(j-1)*dy  +ran1(ir)*dy
  PInLoc(ii,2) = P(ii,2)
  P(ii,13)=P(ii,2) ! Saving the initial location
- !P(ii,15) = part_tstart + 0.0 !setting insert time to the start time
+ P(ii,15) = part_tstart + 0.0 !setting insert time to the start time
   Z = 0.0d0
   do ik = 1, k
   Z = Z + dz(ik)
@@ -820,8 +816,6 @@ end do ! j
 
 end if !! river IC
 
-write(11,*) '## Debug3'
-write(11,'("NPactive:",i12)') np_active
 
 ! Write out intial concentrations
 ! normalize ages by mass
@@ -973,7 +967,7 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
         P(ii,4) = 0.0d0
         if (iflux_p_res >= 0) P(ii,4) = 0.0d0 +ran1(ir)*pfdt
         P(ii,5) = 0.0d0
-        !P(ii,15) = part_tstart + float((kk-1))*pfdt + P(ii,4) !recording particle insert time
+        P(ii,15) = part_tstart + float((kk-1))*pfdt + P(ii,4) !recording particle insert time
         ! mass of water flux into the cell divided up among the particles assigned to that cell
         !P(ii,6) = (1.0d0/float(iflux_p_res))   &
           !        *P(ii,4)*EvapTrans(i,j,k)*dx*dy*dz(k)*denh2o  !! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass
