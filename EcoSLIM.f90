@@ -173,8 +173,10 @@ real*8  Time_first, part_tstart
         ! initial timestep for Parflow ((pft1-1)*pfdt)
         ! initial time for particles (used for recording the particle insert time)
 
-integer kk
+integer kk, ktemp
         ! Loop counter for the time steps (pfnt)
+        ! temporary loop counter
+
 integer pfkk, outkk
        ! Counter for the file numbers starts at pft1
        ! Counter for the output writing
@@ -406,7 +408,7 @@ nnx=nx+1
 nny=ny+1
 nnz=nz+1
 
-itemp=1
+itemp=0
 
 nCLMsoil = 10 ! number of CLM soil layers over the root zone
 nzclm = 13+nCLMsoil ! CLM output is 13+nCLMsoil layers for different variables not domain NZ,
@@ -806,6 +808,7 @@ end if
 !! Define initial particles' locations by surface water
 !!
 if (np_ic < -1)  then
+    write(11,*) 'River IC activated'
 np_active = 0
 pid = np_active
 
@@ -989,56 +992,74 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
         PET_balance(kk,1) = PET_balance(kk,1) &
                             + pfdt*EvapTrans(i,j,k)*dx*dy*dz(k)*denh2o
         do ji = 1, iflux_p_res
-        if (np_active < np) then   ! check if we have particles left
-        np_active = np_active + 1
-        pid = pid + 1
-        ii = np_active             ! increase total number of particles
-        P(ii,11) = pid
-        i_added_particles = i_added_particles + 1   ! increase particle counter for accounting
-        ! assign X, Y locations randomly to recharge cell
-        P(ii,1) = float(i-1)*dx  +ran1(ir)*dx
-        PInLoc(ii,1) = P(ii,1)
-        P(ii,12)=P(ii,1) ! Saving the initial location
-        P(ii,2) = float(j-1)*dy  +ran1(ir)*dy
-        PInLoc(ii,2) = P(ii,2)
-        P(ii,13)=P(ii,2) ! Saving the initial location
-        Z = 0.0d0
-        do ik = 1, k
-        Z = Z + dz(ik)
-        end do
-        ! Z location is fixed
-        P(ii,3) = Z -dz(k)*0.5d0 !  *ran1(ir)
-        PInLoc(ii,3) = P(ii,3)
-        P(ii,14)=P(ii,3) ! Saving the initial location
+          if (np_active < np) then   ! check if we have particles left
+            np_active = np_active + 1
+            pid = pid + 1
+            ii = np_active             ! increase total number of particles
+            P(ii,11) = pid
+            i_added_particles = i_added_particles + 1   ! increase particle counter for accounting
+            ! assign X, Y locations randomly to recharge cell
+            P(ii,1) = float(i-1)*dx  +ran1(ir)*dx
+            PInLoc(ii,1) = P(ii,1)
+            P(ii,12)=P(ii,1) ! Saving the initial location
+            P(ii,2) = float(j-1)*dy  +ran1(ir)*dy
+            PInLoc(ii,2) = P(ii,2)
+            P(ii,13)=P(ii,2) ! Saving the initial location
+            Z = 0.0d0
+            do ik = 1, k
+              Z = Z + dz(ik)
+            end do
+            ! Z location is fixed
+            P(ii,3) = Z -dz(k)*0.5d0 !  *ran1(ir)
+            PInLoc(ii,3) = P(ii,3)
+            P(ii,14)=P(ii,3) ! Saving the initial location
 
-        ! assign zero time and flux of water
-        ! time is assigned randomly over the recharge time to represent flux over the
-        ! PF DT unless we are running SS then have all particles start at the same time
-        P(ii,4) = 0.0d0
-        if (iflux_p_res >= 0) P(ii,4) = 0.0d0 +ran1(ir)*pfdt
-        P(ii,5) = 0.0d0
-        P(ii,15) = part_tstart + float((kk-1))*pfdt + P(ii,4) !recording particle insert time
-        ! mass of water flux into the cell divided up among the particles assigned to that cell
-        !P(ii,6) = (1.0d0/float(iflux_p_res))   &
-          !        *P(ii,4)*EvapTrans(i,j,k)*dx*dy*dz(k)*denh2o  !! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass
-        P(ii,6) = (1.0d0/float(abs(iflux_p_res)))   &
+            ! assign zero time and flux of water
+            ! time is assigned randomly over the recharge time to represent flux over the
+            ! PF DT unless we are running SS then have all particles start at the same time
+            P(ii,4) = 0.0d0
+
+            if (iflux_p_res >= 0) then
+               P(ii,4) = 0.0d0 +ran1(ir)*pfdt
+
+               !If you are using an indicator file than time according to the local indicator
+               if (nind > 0) then
+                 Ploc(1) = floor(P(ii,1) / dx)
+                 Ploc(2) = floor(P(ii,2) / dy)
+                 Ploc(3) = nz-1
+
+                 itemp=int(Ind(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))
+                 if(itemp>0 .and. itemp <=nind) then
+                   P(ii,(17+itemp))=P(ii,(17+itemp)) + P(ii,4)
+                   itemp=0
+                 end  if
+               end if
+            end if
+
+
+            P(ii,5) = 0.0d0
+            P(ii,15) = part_tstart + float((kk-1))*pfdt + P(ii,4) !recording particle insert time
+            ! mass of water flux into the cell divided up among the particles assigned to that cell
+            !P(ii,6) = (1.0d0/float(iflux_p_res))   &
+            !        *P(ii,4)*EvapTrans(i,j,k)*dx*dy*dz(k)*denh2o  !! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass
+            P(ii,6) = (1.0d0/float(abs(iflux_p_res)))   &
                     *pfdt*EvapTrans(i,j,k)*dx*dy*dz(k)*denh2o  !! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass
-        !! check if input is rain or snowmelt
-        if(CLMvars(i,j,11) > 0.0) then !this is snowmelt
-        P(ii,7) = 3.0d0 ! Snow composition
-        else
-        P(ii,7) = 2.d0 ! Rainfall composition
-        end if
-        P(ii,8) = 1.0d0   ! make particle active
-        P(ii,9) = 1.0d0
-        P(ii,10) = 0.0d0  ! Particle hasn't exited domain
+                    !! check if input is rain or snowmelt
+            if(CLMvars(i,j,11) > 0.0) then !this is snowmelt
+              P(ii,7) = 3.0d0 ! Snow composition
+            else
+              P(ii,7) = 2.d0 ! Rainfall composition
+            end if
+            P(ii,8) = 1.0d0   ! make particle active
+            P(ii,9) = 1.0d0
+            P(ii,10) = 0.0d0  ! Particle hasn't exited domain
 
         else
-        write(11,*) ' **Warning rainfall input but no paricles left'
-        write(11,*) ' **Exiting code gracefully writing restart '
-        goto 9090
+          write(11,*) ' **Warning rainfall input but no paricles left'
+          write(11,*) ' **Exiting code gracefully writing restart '
+          goto 9090
         end if  !! do we have particles left?
-        end do !! for flux particle resolution
+      end do !! for flux particle resolution
 
         else !! ET not P
         ! sum water inputs in PET 1 = P, 2 = ET, kk= PF timestep
@@ -1076,6 +1097,7 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
         ir = -(932117 + ii + 100*kk)
         if(P(ii,8) == 1.0) then
                 delta_time = P(ii,4) + pfdt
+                particledt = 0.0
                 do while (P(ii,4) < delta_time)
 
                         ! Find the "adjacent" cell corresponding to the particle's location
@@ -1304,10 +1326,13 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
                         !If you are using an indicator file than store length and time according to the indicators
                         if (nind > 0) then
                           itemp=int(Ind(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))
-                          P(ii,(17+itemp))=P(ii,(17+itemp)) + particledt
-                          P(ii,(17+nind+itemp))=P(ii,(17+nind+itemp)) + Ltemp
+                          if(itemp>0 .and. itemp <=nind) then
+                            P(ii,(17+itemp))=P(ii,(17+itemp)) + particledt
+                            P(ii,(17+nind+itemp))=P(ii,(17+nind+itemp)) + Ltemp
+                          end  if
                         end if
 
+                        itemp = 0
                         Ltemp=0.0
                         ! simple reflection boundary
                         if (P(ii,3) >=Zmax) P(ii,3) = Zmax- (P(ii,3) - Zmax)
