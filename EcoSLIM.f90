@@ -93,6 +93,15 @@ real*8,allocatable::P(:,:)
         ! P(np,8) = Particle Status (1=active, 0=inactive)
         ! P(np,9) = concentration
         ! P(np,10) = Exit status (1=outflow, 2=ET...)
+        ! P(np,11) = Particle Number (This is a unique integer identifier for the particle)
+        ! P(np,12) = Partical Initial X coordinate [L]
+        ! P(np,13) = Partical Initial Y coordinate [L]
+        ! P(np,14) = Partical Initial Z coordinate [L]
+        ! P(np,15) = Time that particle was added [T]
+        ! P(np,16) = Length of flow path [L]
+        ! P(np,17) = Length of saturated flow path [L]
+        ! P(np,18:(17+nind)) = Length of flow path in indicator i [L]
+        ! P(np,(18+nind):(17+nind*2)) = particle age in indicator i [T]
 
 !@ RMM, why is this needed?
 real*8,allocatable::PInLoc(:,:)
@@ -132,9 +141,13 @@ real*8,allocatable::EvapTrans(:,:,:)     ! CLM EvapTrans (read from ParFlow, [1/
 real*8,allocatable::CLMvars(:,:,:)     ! CLM Output (read from ParFlow, following single file
                                        ! CLM output as specified in the manual)
 real*8, allocatable::Pnts(:,:), DEM(:,:) ! DEM and grid points for concentration output
+real*8, allocatable::Ind(:,:,:)           ! Indicator file
 
 integer Ploc(3)
         ! Particle's location whithin a cell
+
+integer nind, itemp
+        ! Number of units in the indicator file, temporary integer to store current indicator
 
 integer nx, nnx, ny, nny, nz, nnz, nztemp
         ! number of cells in the domain and cells+1 in x, y, and z directions
@@ -145,20 +158,27 @@ integer np_ic, np, np_active, np_active2, icwrite, jj, npnts, ncell, npout
 integer nt, n_constituents
         ! number of timesteps ParFlow; numer of C vectors written for VTK output
 
-real*8  pfdt, advdt(3)
+integer  pid
+        ! Counter for particle ID number
+
+real*8  pfdt, advdt(3), Ltemp
         ! ParFlow timestep value, advection timestep for each direction
         ! for each individual particle step; used to chose optimal particle timestep
+        ! Temporary storage for step length calculations
 
 integer pft1, pft2, tout1, pfnt, n_cycle
         ! parflow start and stop file numbers number of ParFlow timesteps
         ! flag specifying the number for the first output write (0= start with pft1)
         ! number of timestep cycles
 
-real*8  Time_first
+real*8  Time_first, part_tstart
         ! initial timestep for Parflow ((pft1-1)*pfdt)
+        ! initial time for particles (used for recording the particle insert time)
 
-integer kk
+integer kk, ktemp
         ! Loop counter for the time steps (pfnt)
+        ! temporary loop counter
+
 integer pfkk, outkk
        ! Counter for the file numbers starts at pft1
        ! Counter for the output writing
@@ -174,7 +194,7 @@ integer itime_loc
         ! Local indices / counters
 integer*4 ir
 
-character*200 runname, filenum, filenumout, pname, fname, vtk_file, DEMname
+character*200 runname, filenum, filenumout, pname, fname, vtk_file, DEMname, Indname
         ! runname = SLIM runname
         ! filenum = ParFlow file number
         ! filenumout = File number for Ecoslim writing
@@ -182,6 +202,7 @@ character*200 runname, filenum, filenumout, pname, fname, vtk_file, DEMname
         ! fname = Full name of a ParFlow's output
         ! vtk_file = concentration file
         ! DEMname = DEM file name
+        ! Indname = Indicator File name
 
 real*8 Clocx, Clocy, Clocz, Z, maxz
         ! The fractional location of each particle within it's grid cell
@@ -239,6 +260,7 @@ real*8 denh2o, moldiff, Efract  !, ran1
 real*8, allocatable::ET_age(:,:), ET_comp(:,:), PET_balance(:,:), ET_mass(:)
 real*8, allocatable::Out_age(:,:), Out_mass(:,:), Out_comp(:,:)
 integer, allocatable:: ET_np(:), Out_np(:)
+
 
 real*8  ET_dt, DR_Temp
 ! time interval for ET
@@ -383,16 +405,12 @@ write(11,*)  'Reading particle restart file:',trim(runname)//'_particle_restart.
 write(11,*) 'np:',np
 
 
-! allocate P, Sx, dz, Vx, Vy, Vz, Saturation, and Porosity arrays
-allocate(P(np,10))
-P(1:np,1:6) = 0.0    ! clear out all particle attributes
-P(1:np,7:9) = 1.0  ! make all particles active to start with and original from 1 = GW/IC
-P(1:np,10) = 0.0   ! no exit
-
 ! grid +1 variables
 nnx=nx+1
 nny=ny+1
 nnz=nz+1
+
+itemp=0
 
 nCLMsoil = 10 ! number of CLM soil layers over the root zone
 nzclm = 13+nCLMsoil ! CLM output is 13+nCLMsoil layers for different variables not domain NZ,
@@ -407,7 +425,7 @@ allocate(PInLoc(np,3))
 allocate(Sx(nx,ny),Sy(nx,ny), DEM(nx,ny))
 allocate(dz(nz), Zt(0:nz))
 allocate(Vx(nnx,ny,nz), Vy(nx,nny,nz), Vz(nx,ny,nnz))
-allocate(Saturation(nx,ny,nz), Porosity(nx,ny,nz),EvapTrans(nx,ny,nz))
+allocate(Saturation(nx,ny,nz), Porosity(nx,ny,nz),EvapTrans(nx,ny,nz), Ind(nx,ny,nz))
 allocate(CLMvars(nx,ny,nzclm))
 allocate(C(n_constituents,nx,ny,nz))
 !allocate(ET_grid(1,nx,ny,nz))
@@ -437,6 +455,7 @@ read(10,*) pfdt
 read(10,*) pft1
 read(10,*) pft2
 read(10,*) tout1
+read(10,*) part_tstart
 read(10,*) n_cycle
 
 pfnt=n_cycle*(pft2-pft1+1)
@@ -463,6 +482,7 @@ Out_age = 0.0d0
 Out_mass = 0.0d0
 Out_comp = 0.0d0
 Out_np = 0
+
 
 ! clear out output particles
 npout = 0
@@ -536,8 +556,41 @@ write(11,*)
 write(11,*) 'Numerical Stability Information'
 write(11,'("dtfrac: ",e12.5," fraction of dx/Vx")') dtfrac
 
+
+read(10,*) nind  !read in the number of indicators
+read(10,*) Indname
+write(11,*)
+write(11,*)  'Indicator File'
+write(11,*)   nind, 'Indicators'
+
+
+! allocate P, Sx, dz, Vx, Vy, Vz, Saturation, and Porosity arrays
+if (nind<=0) then
+  allocate(P(np,17))
+  P(1:np,1:6) = 0.0    ! clear out all particle attributes
+  P(1:np,7:9) = 1.0  ! make all particles active to start with and original from 1 = GW/IC
+  P(1:np,10) = 0.0   ! no exit
+  P(1:np,11:14) = 0.0   ! Clear initial ID and location
+  P(1:np,15) = 0.0   ! Set initial start time to zero
+  P(1:np,16:17) = 0.0   ! Set initial lengths to zero
+  write(11,*)  'Zero indicators setting up regular P  array'
+else
+  allocate(P(np,(17+nind*2)))
+  P(1:np,1:6) = 0.0    ! clear out all particle attributes
+  P(1:np,7:9) = 1.0  ! make all particles active to start with and original from 1 = GW/IC
+  P(1:np,10) = 0.0   ! no exit
+  P(1:np,11:14) = 0.0   ! Clear initial ID and location
+  P(1:np,15) = 0.0   ! Set initial start time to zero
+  P(1:np,16:17) = 0.0   ! Set initial lengths to zero
+  P(1:np, 18:(17+nind*2))=0.0 !initizling indicator file times and lengths to zero
+  write(11,*) 'Adding columns for',nind, 'indicators'
+  !Read in the indictor file
+
+end if
+
 ! end of SLIM input
 close(10)
+
 
 call system_clock(T2)
 
@@ -560,6 +613,19 @@ if (DEMname /= '') then
  fname = trim(adjustl(DEMname))
  call pfb_read(DEM,fname,nx,ny,nztemp)
 end if ! DEM
+
+Ind = 1.0d0
+! read in Indicator file
+if (nind>0) then
+  if (Indname /= '') then
+    fname = trim(adjustl(Indname))
+    call pfb_read(Ind,fname,nx,ny,nztemp)
+    write(11,*) 'Read Indicator File:', fname
+     !write(11,*) 'IndREAD:', nx, ny, nztemp
+  else
+    write(11,*) 'WARNING: indicator flage >0 but no indicator  file provided'
+  end if ! Ind
+end if
 
 !! hard wire DEM  @RMM, to do, need to make this input
 !do i = 1, nx
@@ -637,10 +703,23 @@ call pfb_read(Saturation,fname,nx,ny,nz)
 ! Intialize random seed
 ir = -3333
 
+!Initialize np_active2
+np_active = 0
+
+!Initialize Ltemp
+Ltemp = 0.0
+
 !! Define initial particles' locations and mass
 !!
+if (np_ic == 0)  then
+  np_active = 0
+  pid = np_active
+end if
+
+
 if (np_ic > 0)  then
 np_active = 0
+pid = 0
 
 PInLoc=0.0d0
 !call srand(333)
@@ -651,13 +730,19 @@ do k = 1, nz
   if (Saturation(i,j,k) > 0.0) then ! check if we are in the active domain
   do ij = 1, np_ic
   np_active = np_active + 1
+  pid=pid + 1
   ii = np_active
+  P(ii,11)=float(pid) !Saving a particle ID number
   ! assign X, Y, Z locations randomly to each cell
   ! assign X, Y, Z locations randomly to each cell
  P(ii,1) = float(i-1)*dx  +ran1(ir)*dx
  PInLoc(ii,1) = P(ii,1)
+ P(ii,12)=P(ii,1) ! Saving the initial location
  P(ii,2) = float(j-1)*dy  +ran1(ir)*dy
  PInLoc(ii,2) = P(ii,2)
+ P(ii,13)=P(ii,2)
+ P(ii,15) = part_tstart + 0.0 !setting insert time to the start time
+
   Z = 0.0d0
   do ik = 1, k
   Z = Z + dz(ik)
@@ -665,6 +750,7 @@ do k = 1, nz
 
   P(ii,3) = Z -dz(k)*ran1(ir)
   PInLoc(ii,3) = P(ii,3)
+  P(ii,14)=P(ii,3) ! Saving the initial location
 
         ! assign mass of particle by the volume of the cells
         ! and the water contained in that cell
@@ -699,11 +785,19 @@ else if (np_ic == -1) then
   open(116,file=trim(runname)//'_particle_restart.bin', FORM='unformatted',  &
       access='stream')
   read(116) np_active
+  read(116) pid
   if (np_active < np) then   ! check if we have particles left
   !do ii = 1, np_active
-            read(116)  P(1:np_active,1:10)
+      if (nind > 0) then
+          read(116)  P(1:np_active,1:(nind*2+17))
+      else
+          read(116)  P(1:np_active,1:17)
+      endif
   !end do !11
   close(116)
+              !pid = np_active
+              write(11,*) 'RESTART np_active :',np_active
+              write(11,*) 'RESTART pid:',pid
   else
     write(11,*) ' **Warning restart IC input but no paricles left'
     write(11,*) ' **Exiting code *not* (over)writing restart '
@@ -711,12 +805,14 @@ else if (np_ic == -1) then
     stop
   end if
 end if
-flush(11)
+
 
 !! Define initial particles' locations by surface water
 !!
 if (np_ic < -1)  then
+    write(11,*) 'River IC activated'
 np_active = 0
+pid = np_active
 
 PInLoc=0.0d0
 !call srand(333)
@@ -728,13 +824,18 @@ k = nz
   !if (saturation(i,j,k) >= 0.95d0)  then
   do ij = 1, abs(np_ic)
   np_active = np_active + 1
+  pid = pid +1
   ii = np_active
+  P(ii,11) = float(pid)
   ! assign X, Y, Z locations randomly to each cell
   ! assign X, Y, Z locations randomly to each cell
  P(ii,1) = float(i-1)*dx  +ran1(ir)*dx
  PInLoc(ii,1) = P(ii,1)
+ P(ii,12)=P(ii,1) ! Saving the initial location
  P(ii,2) = float(j-1)*dy  +ran1(ir)*dy
  PInLoc(ii,2) = P(ii,2)
+ P(ii,13)=P(ii,2) ! Saving the initial location
+ P(ii,15) = part_tstart + 0.0 !setting insert time to the start time
   Z = 0.0d0
   do ik = 1, k
   Z = Z + dz(ik)
@@ -742,6 +843,7 @@ k = nz
 
   P(ii,3) = Z !-dz(k)*ran1(ir)
   PInLoc(ii,3) = P(ii,3)
+  P(ii,14)=P(ii,3) ! Saving the initial location
 
         ! assign mass of particle by the volume of the cells
         ! and the water contained in that cell
@@ -768,6 +870,7 @@ end do ! i
 end do ! j
 
 end if !! river IC
+
 
 ! Write out intial concentrations
 ! normalize ages by mass
@@ -802,7 +905,7 @@ write(11,*) ' Timestep PFTimestep OutStep    Time     Mean_Age    Mean_Comp   Me
              NP_QOut NP_active_old NP_filtered'
 flush(11)
 
-!! open exited partile file and write header
+!! open exited particle file and write header
 !open(114,file=trim(runname)//'_exited_particles.txt')
 open(114,file=trim(runname)//'_exited_particles.bin', FORM='unformatted',  &
     access='stream')
@@ -891,50 +994,74 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
         PET_balance(kk,1) = PET_balance(kk,1) &
                             + pfdt*EvapTrans(i,j,k)*dx*dy*dz(k)*denh2o
         do ji = 1, iflux_p_res
-        if (np_active < np) then   ! check if we have particles left
-        np_active = np_active + 1
-        ii = np_active             ! increase total number of particles
-        i_added_particles = i_added_particles + 1   ! increase particle counter for accounting
-        ! assign X, Y locations randomly to recharge cell
-        P(ii,1) = float(i-1)*dx  +ran1(ir)*dx
-        PInLoc(ii,1) = P(ii,1)
-        P(ii,2) = float(j-1)*dy  +ran1(ir)*dy
-        PInLoc(ii,2) = P(ii,2)
-        Z = 0.0d0
-        do ik = 1, k
-        Z = Z + dz(ik)
-        end do
-        ! Z location is fixed
-        P(ii,3) = Z -dz(k)*0.5d0 !  *ran1(ir)
-        PInLoc(ii,3) = P(ii,3)
+          if (np_active < np) then   ! check if we have particles left
+            np_active = np_active + 1
+            pid = pid + 1
+            ii = np_active             ! increase total number of particles
+            P(ii,11) = pid
+            i_added_particles = i_added_particles + 1   ! increase particle counter for accounting
+            ! assign X, Y locations randomly to recharge cell
+            P(ii,1) = float(i-1)*dx  +ran1(ir)*dx
+            PInLoc(ii,1) = P(ii,1)
+            P(ii,12)=P(ii,1) ! Saving the initial location
+            P(ii,2) = float(j-1)*dy  +ran1(ir)*dy
+            PInLoc(ii,2) = P(ii,2)
+            P(ii,13)=P(ii,2) ! Saving the initial location
+            Z = 0.0d0
+            do ik = 1, k
+              Z = Z + dz(ik)
+            end do
+            ! Z location is fixed
+            P(ii,3) = Z -dz(k)*0.5d0 !  *ran1(ir)
+            PInLoc(ii,3) = P(ii,3)
+            P(ii,14)=P(ii,3) ! Saving the initial location
 
-        ! assign zero time and flux of water
-        ! time is assigned randomly over the recharge time to represent flux over the
-        ! PF DT unless we are running SS then have all particles start at the same time
-        P(ii,4) = 0.0d0
-        if (iflux_p_res >= 0) P(ii,4) = 0.0d0 +ran1(ir)*pfdt
-        P(ii,5) = 0.0d0
-        ! mass of water flux into the cell divided up among the particles assigned to that cell
-        !P(ii,6) = (1.0d0/float(iflux_p_res))   &
-          !        *P(ii,4)*EvapTrans(i,j,k)*dx*dy*dz(k)*denh2o  !! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass
-        P(ii,6) = (1.0d0/float(abs(iflux_p_res)))   &
+            ! assign zero time and flux of water
+            ! time is assigned randomly over the recharge time to represent flux over the
+            ! PF DT unless we are running SS then have all particles start at the same time
+            P(ii,4) = 0.0d0
+
+            if (iflux_p_res >= 0) then
+               P(ii,4) = 0.0d0 +ran1(ir)*pfdt
+
+               !If you are using an indicator file than time according to the local indicator
+               if (nind > 0) then
+                 Ploc(1) = floor(P(ii,1) / dx)
+                 Ploc(2) = floor(P(ii,2) / dy)
+                 Ploc(3) = nz-1
+
+                 itemp=int(Ind(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))
+                 if(itemp>0 .and. itemp <=nind) then
+                   P(ii,(17+itemp))=P(ii,(17+itemp)) + P(ii,4)
+                   itemp=0
+                 end  if
+               end if
+            end if
+
+
+            P(ii,5) = 0.0d0
+            P(ii,15) = part_tstart + float((kk-1))*pfdt + P(ii,4) !recording particle insert time
+            ! mass of water flux into the cell divided up among the particles assigned to that cell
+            !P(ii,6) = (1.0d0/float(iflux_p_res))   &
+            !        *P(ii,4)*EvapTrans(i,j,k)*dx*dy*dz(k)*denh2o  !! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass
+            P(ii,6) = (1.0d0/float(abs(iflux_p_res)))   &
                     *pfdt*EvapTrans(i,j,k)*dx*dy*dz(k)*denh2o  !! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass
-        !! check if input is rain or snowmelt
-        if(CLMvars(i,j,11) > 0.0) then !this is snowmelt
-        P(ii,7) = 3.0d0 ! Snow composition
-        else
-        P(ii,7) = 2.d0 ! Rainfall composition
-        end if
-        P(ii,8) = 1.0d0   ! make particle active
-        P(ii,9) = 1.0d0
-        P(ii,10) = 0.0d0  ! Particle hasn't exited domain
+                    !! check if input is rain or snowmelt
+            if(CLMvars(i,j,11) > 0.0) then !this is snowmelt
+              P(ii,7) = 3.0d0 ! Snow composition
+            else
+              P(ii,7) = 2.d0 ! Rainfall composition
+            end if
+            P(ii,8) = 1.0d0   ! make particle active
+            P(ii,9) = 1.0d0
+            P(ii,10) = 0.0d0  ! Particle hasn't exited domain
 
         else
-        write(11,*) ' **Warning rainfall input but no paricles left'
-        write(11,*) ' **Exiting code gracefully writing restart '
-        goto 9090
+          write(11,*) ' **Warning rainfall input but no paricles left'
+          write(11,*) ' **Exiting code gracefully writing restart '
+          goto 9090
         end if  !! do we have particles left?
-        end do !! for flux particle resolution
+      end do !! for flux particle resolution
 
         else !! ET not P
         ! sum water inputs in PET 1 = P, 2 = ET, kk= PF timestep
@@ -957,8 +1084,8 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
 !$OMP PARALLEL PRIVATE(Ploc, k, l, ik, Clocx, Clocy, Clocz, Vpx, Z, z1, z2, z3)   &
 !$OMP& PRIVATE(Vpy, Vpz, particledt, delta_time,local_flux, et_flux)  &
 !$OMP& PRIVATE(water_vol, Zr, itime_loc, advdt, DR_Temp, ir) &
-!$OMP& SHARED(EvapTrans, Vx, Vy, Vz, P, Saturation, Porosity, dx, dy, dz, denh2o) &
-!$OMP& SHARED(np_active, pfdt, nz, nx, ny, xmin, ymin, zmin, xmax, ymax, zmax)  &
+!$OMP& SHARED(EvapTrans, Vx, Vy, Vz, P, Saturation, Porosity, dx, dy, dz, denh2o, Ind) &
+!$OMP& SHARED(np_active, pfdt, nz, nx, ny, xmin, ymin, zmin, xmax, ymax, zmax, nind)  &
 !$OMP& SHARED(kk, pfnt, out_age, out_mass, out_comp, out_np, dtfrac, et_age, et_mass) &
 !$OMP& SHARED(et_comp, et_np, moldiff, efract, C,ipwrite) &
 !$OMP& Default(private)
@@ -972,6 +1099,7 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
         ir = -(932117 + ii + 100*kk)
         if(P(ii,8) == 1.0) then
                 delta_time = P(ii,4) + pfdt
+                particledt = 0.0
                 do while (P(ii,4) < delta_time)
 
                         ! Find the "adjacent" cell corresponding to the particle's location
@@ -1160,6 +1288,12 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
                         P(ii,3) = P(ii,3) + particledt * Vpz
                         P(ii,4) = P(ii,4) + particledt
 
+                        !Calcuate the distance travelled
+                        Ltemp=DSQRT((particledt*Vpx)**2 + (particledt*Vpy)**2 + &
+                                   (particledt*Vpz)**2)
+                        !P(ii,16) = P(ii,16) + DSQRT((particledt*Vpx)**2 + (particledt*Vpy)**2 + &
+                              !     (particledt*Vpz)**2)
+
                         ! Molecular Diffusion
                         if (moldiff > 0.0d0) then
                         z1 = 2.d0*DSQRT(3.0D0)*(ran1(ir)-0.5D0)
@@ -1169,14 +1303,39 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
                         P(ii,1) = P(ii,1) + z1 * DSQRT(moldiff*2.0D0*particledt)
                         P(ii,2) = P(ii,2) + z2 * DSQRT(moldiff*2.0D0*particledt)
                         P(ii,3) = P(ii,3) + z3 * DSQRT(moldiff*2.0D0*particledt)
+
+                        !Calcuate the distance travelled
+                        !P(ii,16) = P(ii,16) + DSQRT((z1*DSQRT(moldiff*2.0D0*particledt))**2 &
+                        !           + (z2*DSQRT(moldiff*2.0D0*particledt))**2 + &
+                        !           (z3*DSQRT(moldiff*2.0D0*particledt))**2)
+                        Ltemp=Ltemp+ DSQRT((z1*DSQRT(moldiff*2.0D0*particledt))**2 &
+                                   + (z2*DSQRT(moldiff*2.0D0*particledt))**2 + &
+                                   (z3*DSQRT(moldiff*2.0D0*particledt))**2)
                         end if
+                        P(ii,16) = P(ii,16) + Ltemp
 
 !!  placeholder for other interactions; potentially added later
 !!
 !!                        if (Ploc(3) == nz-1)  P(ii,9) = P(ii,9) -Efract*particledt*CLMvars(Ploc(1)+1,Ploc(2)+1,7)
 !!
                         ! place to track saturated / groundwater time if needed
-                        if(Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) == 1.0) P(ii,5) = P(ii,5) + particledt
+                        if(Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) == 1.0) then
+                           P(ii,5) = P(ii,5) + particledt
+                           !also tracking length in the saturate zone
+                           P(ii,17) = P(ii,17) + Ltemp
+                        end if
+
+                        !If you are using an indicator file than store length and time according to the indicators
+                        if (nind > 0) then
+                          itemp=int(Ind(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))
+                          if(itemp>0 .and. itemp <=nind) then
+                            P(ii,(17+itemp))=P(ii,(17+itemp)) + particledt
+                            P(ii,(17+nind+itemp))=P(ii,(17+nind+itemp)) + Ltemp
+                          end  if
+                        end if
+
+                        itemp = 0
+                        Ltemp=0.0
                         ! simple reflection boundary
                         if (P(ii,3) >=Zmax) P(ii,3) = Zmax- (P(ii,3) - Zmax)
                         if (P(ii,1) >=Xmax) P(ii,1) = Xmax- (P(ii,1) - Xmax)
@@ -1188,7 +1347,7 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
                         ! write all active particles at concentration in ASCII VisIT 3D file format continuously
                         ! as noted above, this option is very slow compared to VTK binary output
                         if (ipwrite < 0) then
-                          if (P(ii,8) == 1.0d0) write(214,61) P(ii,1), P(ii,2), P(ii,3), P(ii,4)
+                          if (P(ii,8) == 1.0d0) write(214,61) P(ii,1), P(ii,2), P(ii,3), P(ii,4), P(ii,11)
                         flush(214)
                       end if !! ipwrite
 
@@ -1248,9 +1407,9 @@ if(ipwrite > 0) then
 if(mod(kk,ipwrite) == 0)  then
 ! open/create/write the 3D output file
 open(14,file=trim(runname)//'_transient_particle.'//trim(adjustl(filenumout))//'.3D')
-write(14,*) 'X Y Z TIME'
+write(14,*) 'X Y Z TIME ID'
 do ii = 1, np_active
-if (P(ii,8) == 1) write(14,61) P(ii,1), P(ii,2), P(ii,3), P(ii,4)
+if (P(ii,8) == 1) write(14,61) P(ii,1), P(ii,2), P(ii,3), P(ii,4), P(ii,11)
 end do
 close(14)
 end if
@@ -1310,7 +1469,7 @@ call system_clock(T1)
 !! sort particles to move inactive ones to the end and active ones up
 np_active2 = np_active
 
-! !$OMP PARALLEL SHARED(P, np_active, np_active2) &
+! !$OMP PARALLEL SHARED(P, np_active, np_active2, nind) &
 ! !$OMP& Default(none)
 !
 mean_age = 0.0d0
@@ -1327,8 +1486,17 @@ do ii = 1, np_active
   !write(114,'(6(e13.5),2(i4))') Time_Next(kk), P(ii,1), P(ii,2), P(ii,3), P(ii,4), P(ii,6), int(P(ii,7)), int(P(ii,10))
   !write(114) sngl(Time_Next(kk)), sngl(P(ii,1)), sngl(P(ii,2)), sngl(P(ii,3)), &
   !        sngl(P(ii,4)), sngl(P(ii,6)), sngl(P(ii,7)), sngl(P(ii,10))
-          write(114) Time_Next(kk), P(ii,1), P(ii,2), P(ii,3), &
-                  P(ii,4), P(ii,6), P(ii,7), P(ii,10)
+          if (nind > 0) then
+            write(114) Time_Next(kk), P(ii,1), P(ii,2), P(ii,3), &
+                  P(ii,4), P(ii,5), P(ii,6), P(ii,7), P(ii,10),  &
+                   P(ii,11), P(ii,12), P(ii,13), P(ii,14), P(ii,15), &
+                    P(ii,16), P(ii,17), P(ii,18:(nind*2+17))
+          else
+            write(114) Time_Next(kk), P(ii,1), P(ii,2), P(ii,3), &
+                  P(ii,4), P(ii,5), P(ii,6), P(ii,7), P(ii,10),  &
+                   P(ii,11), P(ii,12), P(ii,13), P(ii,14), P(ii,15), P(ii,16), P(ii,17)
+
+          endif
           npout = npout + 1
 
 !  !$OMP CRITICAL
@@ -1396,8 +1564,13 @@ call system_clock(T1)
 open(116,file=trim(runname)//'_particle_restart.bin', FORM='unformatted',  &
     access='stream')
 write(116) np_active
+write(116) pid
 !do ii = 1, np_active
-          write(116)  P(1:np_active,1:10)
+if (nind > 0) then
+  write(116)  P(1:np_active,1:(nind*2+17))
+else
+    write(116)  P(1:np_active,1:17)
+end if
 !end do !11
 close(116)
 

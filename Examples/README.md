@@ -5,3 +5,6 @@ Examples Directory
 
 **Hillslope_Simulations:**
 Cases from [Maxwell et al. Ecohydrology](https://doi.org/10.1002/eco.2042)
+
+** EcoSLIM_ReadBin_fnx.R**
+An R function demonstrating how to read EcoSLIM binary file outputs. 
