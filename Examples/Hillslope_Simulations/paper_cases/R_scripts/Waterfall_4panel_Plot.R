@@ -23,7 +23,7 @@ par(mfrow=c(2,2))
 ## load trees with ER forcing
 fin='./ER_hillslope_trees/SLIM_hillslope_ER_trees_exited_particles.bin'
 length=file.info(fin)$size/8
-ncol=8
+ncol=16
 print(length)/ncol
 to.read = file(fin,'rb')
 part=matrix(0, nrow=(length/ncol), ncol=ncol)
@@ -31,12 +31,15 @@ for(i in 1:(length/ncol)){
 	part[i,]= readBin(to.read, double(), endian='little', size=8,n=ncol)
 }
 close(to.read)
-colnames(part)=c("Time", "x", "y", "z", "Ptime", "Mass", "Comp", "ExitStatus")
+col.names= c("Time","X","Y","Z","Ptime","Sat_Ptime","Mass","Comp","ExitStatus","ID","init_X",
+             "init_Y","init_Z","ins_time","path_len","spath_len")
+#colnames(part)=c("Time", "x", "y", "z", "Ptime", "Mass", "Comp", "ExitStatus")
+colnames(part)=col.names
 npart=nrow(part)
 
 #3D Histograms of particle ages
-out = which( (part[,8] == 1) & (part[,1]>=(19*8760)))
-et = which((part[,8] == 2) & (part[,1]>=(19*8760)))
+out = which( (part[,9] == 1) & (part[,1]>=(19*8760)))
+et = which((part[,9] == 2) & (part[,1]>=(19*8760)))
 den3d_out_er_trees <- kde2d( (part[out,5])/24/365,part[out,1]/24/365, n = 50)
 
 den3d_et_er_trees_time <- kde2d( (part[et,5])/24/365,part[et,1]/24/365, n = 50)
@@ -65,7 +68,7 @@ slicedens(x,y,z,fcol=fcol, bcol='white', lcol=lcol,gboost=.90, yinc=7, slices=12
 ## load shrubs with LW forcing
 fin='../LW_hillslope_shrub/SLIM_hillslope_LW_shrub_exited_particles.bin'
 length=file.info(fin)$size/8
-ncol=8
+ncol=16
 print(length)/ncol
 to.read = file(fin,'rb')
 part=matrix(0, nrow=(length/ncol), ncol=ncol)
@@ -73,12 +76,15 @@ for(i in 1:(length/ncol)){
 	part[i,]= readBin(to.read, double(), endian='little', size=8,n=ncol)
 }
 close(to.read)
-colnames(part)=c("Time", "x", "y", "z", "Ptime", "Mass", "Comp", "ExitStatus")
+col.names= c("Time","X","Y","Z","Ptime","Sat_Ptime","Mass","Comp","ExitStatus","ID","init_X",
+             "init_Y","init_Z","ins_time","path_len","spath_len")
+#colnames(part)=c("Time", "x", "y", "z", "Ptime", "Mass", "Comp", "ExitStatus")
+colnames(part)=col.names
 npart=nrow(part)
 
 #3D Histograms of particle ages
-out = which( (part[,8] == 1) & (part[,1]>=(19*8760)))
-et = which((part[,8] == 2) & (part[,1]>=(19*8760)))
+out = which( (part[,9] == 1) & (part[,1]>=(19*8760)))
+et = which((part[,9] == 2) & (part[,1]>=(19*8760)))
 den3d_out_lw_shrubs <- kde2d( (part[out,5])/24/365,part[out,1]/24/365, n = 50)
 den3d_et_lw_shrubs_time <- kde2d( (part[et,5])/24/365,part[et,1]/24/365, n = 50)
 den3d_et_lw_shrubs_space <- kde2d( (part[et,5])/24/365,part[et,2], n = 100)
@@ -87,7 +93,7 @@ den3d_et_lw_shrubs_space <- kde2d( (part[et,5])/24/365,part[et,2], n = 100)
 ## load trees with LW forcing
 fin='../LW_hillslope_trees/SLIM_hillslope_LW_trees_exited_particles.bin'
 length=file.info(fin)$size/8
-ncol=8
+ncol=16
 print(length)/ncol
 to.read = file(fin,'rb')
 part=matrix(0, nrow=(length/ncol), ncol=ncol)
@@ -95,12 +101,15 @@ for(i in 1:(length/ncol)){
 	part[i,]= readBin(to.read, double(), endian='little', size=8,n=ncol)
 }
 close(to.read)
-colnames(part)=c("Time", "x", "y", "z", "Ptime", "Mass", "Comp", "ExitStatus")
+col.names= c("Time","X","Y","Z","Ptime","Sat_Ptime","Mass","Comp","ExitStatus","ID","init_X",
+             "init_Y","init_Z","ins_time","path_len","spath_len")
+#colnames(part)=c("Time", "x", "y", "z", "Ptime", "Mass", "Comp", "ExitStatus")
+colnames(part)=col.names
 npart=nrow(part)
 
 #3D Histograms of particle ages
-out = which( (part[,8] == 1) & (part[,1]>=(19*8760)))
-et = which((part[,8] == 2) & (part[,1]>=(19*8760)))
+out = which( (part[,9] == 1) & (part[,1]>=(19*8760)))
+et = which((part[,9] == 2) & (part[,1]>=(19*8760)))
 den3d_out_lw_trees <- kde2d( (part[out,5])/24/365,part[out,1]/24/365, n = 50)
 den3d_et_lw_trees_time <- kde2d( (part[et,5])/24/365,part[et,1]/24/365, n = 50)
 den3d_et_lw_trees_space <- kde2d( (part[et,5])/24/365,part[et,2], n = 100)
@@ -129,7 +138,7 @@ dev.off()
 ## load shrubs with ER forcing
 fin='./ER_hillslope_shrub/SLIM_hillslope_ER_shrub_exited_particles.bin'
 length=file.info(fin)$size/8
-ncol=8
+ncol=16
 print(length)/ncol
 to.read = file(fin,'rb')
 part=matrix(0, nrow=(length/ncol), ncol=ncol)
@@ -137,12 +146,15 @@ for(i in 1:(length/ncol)){
 	part[i,]= readBin(to.read, double(), endian='little', size=8,n=ncol)
 }
 close(to.read)
-colnames(part)=c("Time", "x", "y", "z", "Ptime", "Mass", "Comp", "ExitStatus")
+col.names= c("Time","X","Y","Z","Ptime","Sat_Ptime","Mass","Comp","ExitStatus","ID","init_X",
+             "init_Y","init_Z","ins_time","path_len","spath_len")
+#colnames(part)=c("Time", "x", "y", "z", "Ptime", "Mass", "Comp", "ExitStatus")
+colnames(part)=col.names
 npart=nrow(part)
 
 #3D Histograms of particle ages
-out = which( (part[,8] == 1) & (part[,1]>=(19*8760)))
-et = which((part[,8] == 2) & (part[,1]>=(19*8760)))
+out = which( (part[,9] == 1) & (part[,1]>=(19*8760)))
+et = which((part[,9] == 2) & (part[,1]>=(19*8760)))
 den3d_out_er_shrubs <- kde2d( (part[out,5])/24/365,part[out,1]/24/365, n = 50)
 den3d_et_er_shrubs_time <- kde2d( (part[et,5])/24/365,part[et,1]/24/365, n = 50)
 den3d_et_er_shrubs_space <- kde2d( (part[et,5])/24/365,part[et,2], n = 100)

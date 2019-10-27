@@ -100,6 +100,8 @@ real*8,allocatable::P(:,:)
         ! P(np,15) = Time that particle was added [T]
         ! P(np,16) = Length of flow path [L]
         ! P(np,17) = Length of saturated flow path [L]
+        ! P(np,18:(17+nind)) = Length of flow path in indicator i [L]
+        ! P(np,(18+nind):(17+nind*2)) = particle age in indicator i [T]
 
 !@ RMM, why is this needed?
 real*8,allocatable::PInLoc(:,:)

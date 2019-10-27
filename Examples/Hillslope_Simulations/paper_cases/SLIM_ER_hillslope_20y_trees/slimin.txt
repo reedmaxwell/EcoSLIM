@@ -26,3 +26,5 @@ True           ! CLM Evap Trans
 1000.0       ! density H2O
 0.00000001   ! Molecular Diffusivity
 0.250d0        ! fraction of Dx/Vx for numerical stability
+0            ! Number of indicators provided. If this value is great than 0 an indicator file must be included
+"" ! Name of the indictor file to use set to '' if not using an indicator file
