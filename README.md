@@ -213,6 +213,6 @@ Examples and tests contained in the repo
 ----------------------------------------
 The *Examples* folder contains the following test cases. A short description
 is provided here. For more details on how to run the examples refer to the
-readme files in that directory.
+readme files in that directory. Note that the *testing* folder contains tests that were used for development purposes and which are not necessarily  maintained with updated versions. User should refer only to the *Examples* folder. 
 1. **ParFlow_SteadyFlux**: A hillslope domain with constant recharge and ET applied at the top and bottom of the hill respectively.  Example is setup to run *EcoSLIM* on transient *ParFlow* outputs without *CLM*. The documentation for this example includes all the steps for running *ParFlow* and *EcoSLIM*
 2. **Hillslope_Simulations/paper_cases**:Hillslope Cases Run in [Maxwell et al. Ecohydrology](https://doi.org/10.1002/eco.2042), see readme file for more details
