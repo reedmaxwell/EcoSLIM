@@ -619,7 +619,7 @@ Ind = 1.0d0
 if (nind>0) then
   if (Indname /= '') then
     fname = trim(adjustl(Indname))
-    call pfb_read(Ind,fname,nx,ny,nztemp)
+    call pfb_read(Ind,fname,nx,ny,nz)
     write(11,*) 'Read Indicator File:', fname
      !write(11,*) 'IndREAD:', nx, ny, nztemp
   else
