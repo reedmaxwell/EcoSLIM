@@ -6,4 +6,6 @@ mpirun -np 20 ./EcoSLIM.exe
 20 is the number of processes used.
 If there is error, please try:
 mpirun -np 20 ./EcoSLIM.exe --mca mpi_cuda_support 0
+If there are problems, please contact:
+yangchen.cug@163.com
 
