@@ -16,5 +16,10 @@ PGI 19.10
 CUDA 10.2
 
 An example of slimin.txt is in the Example folder
+This branch has the same capability with the master branch.
+One parameter is different from the master branch:
+line 15 in slimin.txt: it should be the current timestep minus 1.
+For example, if it is the first run of your simulation and you start from time=1.0, you should set it as 0
+
 
 If there are any problems or you need technical support, please contact: chen_yang@princeton.edu
