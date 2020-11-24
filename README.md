@@ -17,4 +17,4 @@ CUDA 10.2
 
 An example of slimin.txt is in the Example folder
 
-If there are any problems or you need technique support, please contact: chen_yang@princeton.edu
+If there are any problems or you need technical support, please contact: chen_yang@princeton.edu
