@@ -8,7 +8,7 @@ export OMP_NUM_THREADS=n
 where n is the number of GPU.
 
 If you use only one GPU, please also set:
-export OMP_NUM_THREADS=1i
+export OMP_NUM_THREADS=1
 
 An example of CUDA environment:
 Ubuntu 18.04.5
