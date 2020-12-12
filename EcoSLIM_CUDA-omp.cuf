@@ -293,7 +293,7 @@ real*8,allocatable,pinned::out_age_cpu(:),out_mass_cpu(:),out_comp_cpu(:)
 real*8,allocatable,pinned::ET_age_cpu(:),ET_mass_cpu(:),ET_comp_cpu(:)
 
 integer,parameter::block_size = 256
-integer:: istat, tnum, np_ps, pp
+integer:: istat, tnum, np_ps, pp, nthds
 
 interface
   SUBROUTINE vtk_write(time,x,conc_header,ixlim,iylim,izlim,icycle,n_constituents,Pnts,vtk_file)
@@ -454,25 +454,25 @@ EvapTrans_da = 0.0d0
 C = 0.0d0
 !ET_grid=0.0d0
 
-!$omp parallel &
-!$omp   private(tnum,istat,dz_de,Vx_de,Vy_de,Vz_de,C_de, &
-!$omp           Saturation_de,Porosity_de,EvapTrans_de,Ind_de, &
-!$omp           out_np_de,ET_np_de,out_age_de,out_mass_de, &
-!$omp           out_comp_de,ET_age_de,ET_mass_de,ET_comp_de), &
-!$omp   shared(nx,ny,nz,nnx,nny,nnz,n_constituents)
-
-tnum = omp_get_thread_num()
-istat = cudaSetDevice(tnum)
-
-allocate(dz_de(nz))
-allocate(Vx_de(nnx,ny,nz), Vy_de(nx,nny,nz), Vz_de(nx,ny,nnz), Ind_de(nx,ny,nz))
-allocate(Saturation_de(nx,ny,nz), Porosity_de(nx,ny,nz),EvapTrans_de(nx,ny,nz))
-allocate(C_de(n_constituents,nx,ny,nz))
-allocate(out_np_de(1),ET_np_de(1))
-allocate(out_age_de(1),out_mass_de(1),out_comp_de(3))
-allocate(ET_age_de(1),ET_mass_de(1),ET_comp_de(3))
-
-!$omp end parallel
+!!$omp parallel &
+!!$omp   private(tnum,istat,dz_de,Vx_de,Vy_de,Vz_de,C_de, &
+!!$omp           Saturation_de,Porosity_de,EvapTrans_de,Ind_de, &
+!!$omp           out_np_de,ET_np_de,out_age_de,out_mass_de, &
+!!$omp           out_comp_de,ET_age_de,ET_mass_de,ET_comp_de), &
+!!$omp   shared(nx,ny,nz,nnx,nny,nnz,n_constituents)
+!
+!tnum = omp_get_thread_num()
+!istat = cudaSetDevice(tnum)
+!
+!allocate(dz_de(nz))
+!allocate(Vx_de(nnx,ny,nz), Vy_de(nx,nny,nz), Vz_de(nx,ny,nnz), Ind_de(nx,ny,nz))
+!allocate(Saturation_de(nx,ny,nz), Porosity_de(nx,ny,nz),EvapTrans_de(nx,ny,nz))
+!allocate(C_de(n_constituents,nx,ny,nz))
+!allocate(out_np_de(1),ET_np_de(1))
+!allocate(out_age_de(1),out_mass_de(1),out_comp_de(3))
+!allocate(ET_age_de(1),ET_mass_de(1),ET_comp_de(3))
+!
+!!$omp end parallel
 
 allocate(out_np_cpu(1),ET_np_cpu(1))
 allocate(out_age_cpu(1),out_mass_cpu(1),out_comp_cpu(3))
@@ -642,6 +642,15 @@ if (nind>0) then
   end if ! Ind
 end if
 
+!!$omp parallel &
+!!$omp   private(tnum,istat,dz_de,Vx_de,Vy_de,Vz_de,C_de, &
+!!$omp           Saturation_de,Porosity_de,EvapTrans_de,Ind_de, &
+!!$omp           out_np_de,ET_np_de,out_age_de,out_mass_de, &
+!!$omp           out_comp_de,ET_age_de,ET_mass_de,ET_comp_de), &
+!!$omp   shared(nx,ny,nz,nnx,nny,nnz,n_constituents,dz2,Ind,Porosity)
+
+!!$omp end parallel
+
 !! hard wire DEM  @RMM, to do, need to make this input
 !do i = 1, nx
 !  do j = 1, ny
@@ -706,6 +715,32 @@ end do
 ! Read porosity values from ParFlow .pfb file
 fname=trim(adjustl(pname))//'.out.porosity.pfb'
 call pfb_read(Porosity,fname,nx,ny,nz)
+
+nthds = omp_get_num_threads()
+do i = 1,nthds
+istat = cudaSetDevice(i-1)
+
+allocate(dz_de(nz))
+allocate(Vx_de(nnx,ny,nz), Vy_de(nx,nny,nz), Vz_de(nx,ny,nnz), Ind_de(nx,ny,nz))
+allocate(Saturation_de(nx,ny,nz), Porosity_de(nx,ny,nz),EvapTrans_de(nx,ny,nz))
+allocate(C_de(n_constituents,nx,ny,nz))
+allocate(out_np_de(1),ET_np_de(1))
+allocate(out_age_de(1),out_mass_de(1),out_comp_de(3))
+allocate(ET_age_de(1),ET_mass_de(1),ET_comp_de(3))
+
+dz_de=dz2
+Ind_de=Ind
+Porosity_de=Porosity
+out_age_de    = 0.d0
+out_mass_de   = 0.d0
+out_comp_de   = 0.d0
+out_np_de     = 0
+et_age_de     = 0.d0
+et_mass_de    = 0.d0
+et_comp_de    = 0.d0
+et_np_de      = 0
+C_de = 0.
+end do
 
 ! Read the in initial Saturation from ParFlow
 kk = 0
@@ -1129,12 +1164,13 @@ do kk = outkk, pfnt
         et_np_cpu     = 0
 
 !$omp parallel &
-!$omp   shared(P,dz2,Vx,Vy,Vz,Saturation,Porosity,EvapTrans, &
+!$omp   shared(P,Vx,Vy,Vz,Saturation,EvapTrans, &
 !$omp          np_ps,block_size,kk,np_active,nx,ny,nz,pfnt,&
 !$omp          pfdt,moldiff,dx,dy,denh2o,dtfrac,xmin,ymin,zmin,&
-!$omp          xmax,ymax,zmax,pp,nind,Ind), &
-!$omp   private(tnum,istat,P_de,C_de,dz_de,Vx_de,Vy_de,Vz_de, &
-!$omp           EvapTrans_de,Saturation_de,Porosity_de,Ind_de, &
+!$omp          xmax,ymax,zmax,pp,nind), &
+!$omp   private(tnum,istat,P_de,Vx_de,Vy_de,Vz_de, &
+!$omp           EvapTrans_de,Saturation_de), &
+!$omp   firstprivate(C_de,dz_de,Porosity_de,Ind_de, &
 !$omp           out_age_de,out_mass_de,out_comp_de,out_np_de, &
 !$omp           et_age_de,et_mass_de,et_comp_de,et_np_de), &
 !$omp   reduction(+:out_age_cpu,out_mass_cpu,out_comp_cpu,out_np_cpu, &
@@ -1150,25 +1186,25 @@ do kk = outkk, pfnt
         allocate(P_de(np_ps,12+2*nind))
         P_de = P(1+tnum*np_ps:(tnum+1)*np_ps,1:12+2*nind)
 
-        C_de          = C
+        !C_de          = C
 
-        dz_de         = dz2
+        !dz_de         = dz2
         Vx_de         = Vx
         Vy_de         = Vy
         Vz_de         = Vz
         Saturation_de = Saturation
-        Porosity_de   = Porosity
+        !Porosity_de   = Porosity
         EvapTrans_de  = EvapTrans
-        Ind_de        = Ind
+        !Ind_de        = Ind
 
-        out_age_de    = out_age_cpu
-        out_mass_de   = out_mass_cpu
-        out_comp_de   = out_comp_cpu
-        out_np_de     = out_np_cpu
-        et_age_de     = et_age_cpu
-        et_mass_de    = et_mass_cpu
-        et_comp_de    = et_comp_cpu
-        et_np_de      = et_np_cpu
+        !out_age_de    = out_age_cpu
+        !out_mass_de   = out_mass_cpu
+        !out_comp_de   = out_comp_cpu
+        !out_np_de     = out_np_cpu
+        !et_age_de     = et_age_cpu
+        !et_mass_de    = et_mass_cpu
+        !et_comp_de    = et_comp_cpu
+        !et_np_de      = et_np_cpu
 
         call particles_independent <<< np_ps/block_size, block_size, &
              block_size*(12+2*nind)*8 >>> (&

@@ -67,7 +67,18 @@ contains
 !=============================================================================
   index1 = (blockIdx%x - 1) * blockDim%x + threadIdx%x
   ii = threadIdx%x
-
+!if(index1==1) then
+!  C = 0.d0
+!  out_age = 0.d0
+!  out_mass = 0.d0
+!  out_comp = 0.d0
+!  et_age = 0.d0
+!  et_mass = 0.d0
+!  et_comp = 0.d0
+!  out_np = 0
+!  et_np = 0
+!end if
+!call syncthreads()
   do ii_g = index1, np_ps, blockDim%x * gridDim%x
 
     P_s(ii,:) = P(ii_g,:)
