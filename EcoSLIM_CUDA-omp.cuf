@@ -454,25 +454,25 @@ EvapTrans_da = 0.0d0
 C = 0.0d0
 !ET_grid=0.0d0
 
-!$omp parallel &
-!$omp   private(tnum,istat,dz_de,Vx_de,Vy_de,Vz_de,C_de, &
-!$omp           Saturation_de,Porosity_de,EvapTrans_de,Ind_de, &
-!$omp           out_np_de,ET_np_de,out_age_de,out_mass_de, &
-!$omp           out_comp_de,ET_age_de,ET_mass_de,ET_comp_de), &
-!$omp   shared(nx,ny,nz,nnx,nny,nnz,n_constituents)
-
-tnum = omp_get_thread_num()
-istat = cudaSetDevice(tnum)
-
-allocate(dz_de(nz))
-allocate(Vx_de(nnx,ny,nz), Vy_de(nx,nny,nz), Vz_de(nx,ny,nnz), Ind_de(nx,ny,nz))
-allocate(Saturation_de(nx,ny,nz), Porosity_de(nx,ny,nz),EvapTrans_de(nx,ny,nz))
-allocate(C_de(n_constituents,nx,ny,nz))
-allocate(out_np_de(1),ET_np_de(1))
-allocate(out_age_de(1),out_mass_de(1),out_comp_de(3))
-allocate(ET_age_de(1),ET_mass_de(1),ET_comp_de(3))
-
-!$omp end parallel
+!!$omp parallel &
+!!$omp   private(tnum,istat,dz_de,Vx_de,Vy_de,Vz_de,C_de, &
+!!$omp           Saturation_de,Porosity_de,EvapTrans_de,Ind_de, &
+!!$omp           out_np_de,ET_np_de,out_age_de,out_mass_de, &
+!!$omp           out_comp_de,ET_age_de,ET_mass_de,ET_comp_de), &
+!!$omp   shared(nx,ny,nz,nnx,nny,nnz,n_constituents)
+!
+!tnum = omp_get_thread_num()
+!istat = cudaSetDevice(tnum)
+!
+!allocate(dz_de(nz))
+!allocate(Vx_de(nnx,ny,nz), Vy_de(nx,nny,nz), Vz_de(nx,ny,nnz), Ind_de(nx,ny,nz))
+!allocate(Saturation_de(nx,ny,nz), Porosity_de(nx,ny,nz),EvapTrans_de(nx,ny,nz))
+!allocate(C_de(n_constituents,nx,ny,nz))
+!allocate(out_np_de(1),ET_np_de(1))
+!allocate(out_age_de(1),out_mass_de(1),out_comp_de(3))
+!allocate(ET_age_de(1),ET_mass_de(1),ET_comp_de(3))
+!
+!!$omp end parallel
 
 allocate(out_np_cpu(1),ET_np_cpu(1))
 allocate(out_age_cpu(1),out_mass_cpu(1),out_comp_cpu(3))
@@ -1069,7 +1069,7 @@ do kk = outkk, pfnt
                       Ploc(2) = floor(P(ii,2) / dy)
                       Ploc(3) = nz-1
 
-                      itemp=int(Ind(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))
+                      itemp=idnint(Ind(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))
                       if(itemp > 0 .and. itemp <= nind) then
                         P(ii,(12+itemp)) = P(ii,(12+itemp)) + P(ii,4)
                         !itemp=0

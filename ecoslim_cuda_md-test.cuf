@@ -131,7 +131,7 @@ contains
             end if
 
             !Out_np_p = Out_np_p + 1
-            temp2 = atomicAdd(Out_np(1), int(lock))
+            temp2 = atomicAdd(Out_np(1), idnint(lock))
 
             !flag particle as inactive
             P_s(ii,8) = 0.
@@ -231,7 +231,7 @@ contains
             end if
 
             !ET_np_p = ET_np_p + 1   ! track number of particles
-            temp2 = atomicAdd(ET_np(1), int(lock))
+            temp2 = atomicAdd(ET_np(1), idnint(lock))
 
             !outputting spatially distributed ET information
             temp = atomicAdd(C(6,Ploc(1)+1,Ploc(2)+1,Ploc(3)+1),lock)
@@ -289,15 +289,15 @@ contains
             end if
 
             if (nind > 0) then
-              !itemp=int(Ind(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))
-              if(int(Ind_T(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)) > 0 .and. &
-                 int(Ind_T(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)) <= nind) then
+              !itemp=idnint(Ind(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))
+              if(idnint(Ind_T(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)) > 0 .and. &
+                 idnint(Ind_T(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)) <= nind) then
 
-                P_s(ii,12+int(Ind_T(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))) = &
-                P_s(ii,12+int(Ind_T(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))) + particledt
+                P_s(ii,12+idnint(Ind_T(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))) = &
+                P_s(ii,12+idnint(Ind_T(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))) + particledt
 
-                P_s(ii,12+nind+int(Ind_T(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))) = &
-                P_s(ii,12+nind+int(Ind_T(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))) + Ltemp
+                P_s(ii,12+nind+idnint(Ind_T(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))) = &
+                P_s(ii,12+nind+idnint(Ind_T(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))) + Ltemp
               end  if
             end if
 
