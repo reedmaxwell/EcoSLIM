@@ -1,4 +1,4 @@
-! Last Change:  2020-11-12 17:43:44
+! Last Change:  2020-12-15 22:02:49
 !--------------------------------------------------------------------
 ! **EcoSLIM** is a Lagrangian, particle-tracking that simulates advective
 ! and diffusive movement of water parcels.  This code can be used to
@@ -278,15 +278,16 @@ integer etwrite
 !! than the .3D ASCII output but is still much slower than grid based output.  It provides the most
 !! information as particle locations are preserved
 
-
+type:: gpu_var_group
 real*8,allocatable,device::P_de(:,:)
 real*8,allocatable,device::Vx_de(:,:,:),Vy_de(:,:,:),Vz_de(:,:,:),dz_de(:),Ind_de(:,:,:)
 real*8,allocatable,device::Saturation_de(:,:,:),Porosity_de(:,:,:),EvapTrans_de(:,:,:)
 real*8,allocatable,device::C_de(:,:,:,:)
-
 integer,allocatable,device::out_np_de(:),ET_np_de(:)
 real*8,allocatable,device::out_age_de(:),out_mass_de(:),out_comp_de(:)
 real*8,allocatable,device::ET_age_de(:),ET_mass_de(:),ET_comp_de(:)
+end type gpu_var_group
+type(gpu_var_group),allocatable::gpu_vars(:)
 
 integer,allocatable,pinned::out_np_cpu(:),ET_np_cpu(:)
 real*8,allocatable,pinned::out_age_cpu(:),out_mass_cpu(:),out_comp_cpu(:)
@@ -707,6 +708,47 @@ end do
 fname=trim(adjustl(pname))//'.out.porosity.pfb'
 call pfb_read(Porosity,fname,nx,ny,nz)
 
+!$omp parallel shared(pp)
+pp = omp_get_num_threads()
+!$omp end parallel
+
+allocate(gpu_vars(pp))
+
+do i=1,pp
+
+    istat = cudaSetDevice (i-1)
+
+    allocate(gpu_vars(i)%dz_de(nz))
+
+    allocate(gpu_vars(i)%Vx_de(nnx,ny,nz), gpu_vars(i)%Vy_de(nx,nny,nz), &
+    gpu_vars(i)%Vz_de(nx,ny,nnz), gpu_vars(i)%Ind_de(nx,ny,nz))
+
+    allocate(gpu_vars(i)%Saturation_de(nx,ny,nz), gpu_vars(i)%Porosity_de(nx,ny,nz), &
+    gpu_vars(i)%EvapTrans_de(nx,ny,nz))
+
+    allocate(gpu_vars(i)%C_de(n_constituents,nx,ny,nz))
+
+    allocate(gpu_vars(i)%out_np_de(1),gpu_vars(i)%ET_np_de(1))
+
+    allocate(gpu_vars(i)%out_age_de(1),gpu_vars(i)%out_mass_de(1),gpu_vars(i)%out_comp_de(3))
+
+    allocate(gpu_vars(i)%ET_age_de(1),gpu_vars(i)%ET_mass_de(1),gpu_vars(i)%ET_comp_de(3))
+
+    gpu_vars(i)%dz_de  = dz2
+    gpu_vars(i)%Ind_de = Ind
+    gpu_vars(i)%Porosity_de = Porosity
+    !gpu_vars(i)%C_de = 0.d0
+    !gpu_vars(i)%out_np_de = 0
+    !gpu_vars(i)%ET_np_de = 0
+    !gpu_vars(i)%out_age_de = 0.d0
+    !gpu_vars(i)%out_mass_de = 0.d0
+    !gpu_vars(i)%out_comp_de = 0.d0
+    !gpu_vars(i)%ET_age_de = 0.d0
+    !gpu_vars(i)%ET_mass_de = 0.d0
+    !gpu_vars(i)%ET_comp_de = 0.d0
+
+end do
+
 ! Read the in initial Saturation from ParFlow
 kk = 0
 pfkk=pft1-1
@@ -978,7 +1020,7 @@ do kk = outkk, pfnt
         fname=trim(adjustl(pname))//'.out.evaptrans.'//trim(adjustl(filenum))//'.pfb'
         call pfb_read(EvapTrans,fname,nx,ny,nz)
 
-        if (mod((kk-1),1) == 0) EvapTrans_da=0.d0
+        if (mod((kk-1),24) == 0) EvapTrans_da=0.d0
         EvapTrans_da = EvapTrans_da + EvapTrans
 
         ! check if we read full CLM output file
@@ -1027,7 +1069,7 @@ do kk = outkk, pfnt
                             + pfdt*EvapTrans(i,j,k)*dx*dy*dz(k)*denh2o
         end if  !! end if for P-ET > 0
 
-        if(mod(kk,1) == 0) then
+        if(mod(kk,24) == 0) then
             if(EvapTrans_da(i,j,k)> 0.0d0) then
 
                 PET_balance_da(kk,1) = PET_balance_da(kk,1) &
@@ -1127,16 +1169,13 @@ do kk = outkk, pfnt
         et_mass_cpu   = 0.
         et_comp_cpu   = 0.
         et_np_cpu     = 0
-
 !$omp parallel &
 !$omp   shared(P,dz2,Vx,Vy,Vz,Saturation,Porosity,EvapTrans, &
 !$omp          np_ps,block_size,kk,np_active,nx,ny,nz,pfnt,&
 !$omp          pfdt,moldiff,dx,dy,denh2o,dtfrac,xmin,ymin,zmin,&
 !$omp          xmax,ymax,zmax,pp,nind,Ind), &
-!$omp   private(tnum,istat,P_de,C_de,dz_de,Vx_de,Vy_de,Vz_de, &
-!$omp           EvapTrans_de,Saturation_de,Porosity_de,Ind_de, &
-!$omp           out_age_de,out_mass_de,out_comp_de,out_np_de, &
-!$omp           et_age_de,et_mass_de,et_comp_de,et_np_de), &
+!$omp   private(tnum,istat), &
+!$omp   default(shared), &
 !$omp   reduction(+:out_age_cpu,out_mass_cpu,out_comp_cpu,out_np_cpu, &
 !$omp           et_age_cpu,et_mass_cpu,et_comp_cpu,et_np_cpu,C)
 
@@ -1147,52 +1186,67 @@ do kk = outkk, pfnt
 
         np_ps=(pp*block_size-mod(np_active,pp*block_size)+np_active)/pp
 
-        allocate(P_de(np_ps,12+2*nind))
-        P_de = P(1+tnum*np_ps:(tnum+1)*np_ps,1:12+2*nind)
+        allocate(gpu_vars(tnum+1)%P_de(np_ps,12+2*nind))
+        gpu_vars(tnum+1)%P_de = P(1+tnum*np_ps:(tnum+1)*np_ps,1:12+2*nind)
 
-        C_de          = C
+        !allocate(dz_de(nz))
+        !allocate(Vx_de(nnx,ny,nz), Vy_de(nx,nny,nz), Vz_de(nx,ny,nnz), Ind_de(nx,ny,nz))
+        !allocate(Saturation_de(nx,ny,nz), Porosity_de(nx,ny,nz),EvapTrans_de(nx,ny,nz))
+        !allocate(C_de(n_constituents,nx,ny,nz))
+        !allocate(out_np_de(1),ET_np_de(1))
+        !allocate(out_age_de(1),out_mass_de(1),out_comp_de(3))
+        !allocate(ET_age_de(1),ET_mass_de(1),ET_comp_de(3))
 
-        dz_de         = dz2
-        Vx_de         = Vx
-        Vy_de         = Vy
-        Vz_de         = Vz
-        Saturation_de = Saturation
-        Porosity_de   = Porosity
-        EvapTrans_de  = EvapTrans
-        Ind_de        = Ind
+        gpu_vars(tnum+1)%C_de          = C
 
-        out_age_de    = out_age_cpu
-        out_mass_de   = out_mass_cpu
-        out_comp_de   = out_comp_cpu
-        out_np_de     = out_np_cpu
-        et_age_de     = et_age_cpu
-        et_mass_de    = et_mass_cpu
-        et_comp_de    = et_comp_cpu
-        et_np_de      = et_np_cpu
+!        gpu_vars(tnum+1)%dz_de         = dz2
+        gpu_vars(tnum+1)%Vx_de         = Vx
+        gpu_vars(tnum+1)%Vy_de         = Vy
+        gpu_vars(tnum+1)%Vz_de         = Vz
+        gpu_vars(tnum+1)%Saturation_de = Saturation
+ !       gpu_vars(tnum+1)%Porosity_de   = Porosity
+        gpu_vars(tnum+1)%EvapTrans_de  = EvapTrans
+  !      gpu_vars(tnum+1)%Ind_de        = Ind
+
+        gpu_vars(tnum+1)%out_age_de    = out_age_cpu
+        gpu_vars(tnum+1)%out_mass_de   = out_mass_cpu
+        gpu_vars(tnum+1)%out_comp_de   = out_comp_cpu
+        gpu_vars(tnum+1)%out_np_de     = out_np_cpu
+        gpu_vars(tnum+1)%et_age_de     = et_age_cpu
+        gpu_vars(tnum+1)%et_mass_de    = et_mass_cpu
+        gpu_vars(tnum+1)%et_comp_de    = et_comp_cpu
+        gpu_vars(tnum+1)%et_np_de      = et_np_cpu
 
         call particles_independent <<< np_ps/block_size, block_size, &
              block_size*(12+2*nind)*8 >>> (&
-             P_de,C_de,dz_de,EvapTrans_de,Vx_de,Vy_de,Vz_de,Saturation_de,&
-             Porosity_de,out_age_de,out_mass_de,out_comp_de,et_age_de,&
-             et_mass_de,et_comp_de,out_np_de,et_np_de,Ind_de,&
+             gpu_vars(tnum+1)%P_de, gpu_vars(tnum+1)%C_de, gpu_vars(tnum+1)%dz_de, &
+             gpu_vars(tnum+1)%EvapTrans_de, gpu_vars(tnum+1)%Vx_de, gpu_vars(tnum+1)%Vy_de, &
+             gpu_vars(tnum+1)%Vz_de, gpu_vars(tnum+1)%Saturation_de, &
+             gpu_vars(tnum+1)%Porosity_de, gpu_vars(tnum+1)%out_age_de, &
+             gpu_vars(tnum+1)%out_mass_de, gpu_vars(tnum+1)%out_comp_de, &
+             gpu_vars(tnum+1)%et_age_de, gpu_vars(tnum+1)%et_mass_de, &
+             gpu_vars(tnum+1)%et_comp_de, gpu_vars(tnum+1)%out_np_de, &
+             gpu_vars(tnum+1)%et_np_de, gpu_vars(tnum+1)%Ind_de, &
              kk,np_ps,nx,ny,nz,pfnt,nind,&
              pfdt,moldiff,dx,dy,denh2o,dtfrac,xmin,ymin,zmin,&
              xmax,ymax,zmax,tnum)
 
-        P(1+tnum*np_ps:(tnum+1)*np_ps,1:12+2*nind) = P_de(1:np_ps,1:12+2*nind)
-        deallocate(P_de)
+        P(1+tnum*np_ps:(tnum+1)*np_ps,1:12+2*nind) = gpu_vars(tnum+1)%P_de(1:np_ps,1:12+2*nind)
+        deallocate(gpu_vars(tnum+1)%P_de,stat=istat)
+        !!$omp barrier
+!        write(12,*) kk,tnum,istat,'P_de'
 
-        C          = C_de
+        C          = gpu_vars(tnum+1)%C_de
 
-        out_age_cpu    = out_age_de
-        out_mass_cpu   = out_mass_de
-        out_comp_cpu   = out_comp_de
-        out_np_cpu     = out_np_de
+        out_age_cpu    = gpu_vars(tnum+1)%out_age_de
+        out_mass_cpu   = gpu_vars(tnum+1)%out_mass_de
+        out_comp_cpu   = gpu_vars(tnum+1)%out_comp_de
+        out_np_cpu     = gpu_vars(tnum+1)%out_np_de
 
-        et_age_cpu     = et_age_de
-        et_mass_cpu    = et_mass_de
-        et_comp_cpu    = et_comp_de
-        et_np_cpu      = et_np_de
+        et_age_cpu     = gpu_vars(tnum+1)%et_age_de
+        et_mass_cpu    = gpu_vars(tnum+1)%et_mass_de
+        et_comp_cpu    = gpu_vars(tnum+1)%et_comp_de
+        et_np_cpu      = gpu_vars(tnum+1)%et_np_de
 
 !$omp end parallel
 
