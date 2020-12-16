@@ -1,4 +1,4 @@
-! Last Change:  2020-12-15 22:02:49
+! Last Change:  2020-12-15 22:18:47
 !--------------------------------------------------------------------
 ! **EcoSLIM** is a Lagrangian, particle-tracking that simulates advective
 ! and diffusive movement of water parcels.  This code can be used to
@@ -1020,7 +1020,7 @@ do kk = outkk, pfnt
         fname=trim(adjustl(pname))//'.out.evaptrans.'//trim(adjustl(filenum))//'.pfb'
         call pfb_read(EvapTrans,fname,nx,ny,nz)
 
-        if (mod((kk-1),24) == 0) EvapTrans_da=0.d0
+        if (mod((kk-1),1) == 0) EvapTrans_da=0.d0
         EvapTrans_da = EvapTrans_da + EvapTrans
 
         ! check if we read full CLM output file
@@ -1069,7 +1069,7 @@ do kk = outkk, pfnt
                             + pfdt*EvapTrans(i,j,k)*dx*dy*dz(k)*denh2o
         end if  !! end if for P-ET > 0
 
-        if(mod(kk,24) == 0) then
+        if(mod(kk,1) == 0) then
             if(EvapTrans_da(i,j,k)> 0.0d0) then
 
                 PET_balance_da(kk,1) = PET_balance_da(kk,1) &
