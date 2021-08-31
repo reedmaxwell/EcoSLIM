@@ -14,7 +14,21 @@ For more details on the model and if you use EcoSLIM in published work please ci
 
 Building and Running
 --------------------
-To build *EcoSLIM* simply type `make` in the directory with the main directory where `EcoSLIM.f90` sits.
+To build *EcoSLIM* first use CMake to configure the build.  EcoSLIM will build with OpenMP if it is found by CMake.
+
+```
+mkdir build
+cd build
+cmake ..
+```
+
+The next step is to build *EcoSLIM*
+
+```
+make
+```
+
+If this is successful there should be an `ecoslim` executable in the build directory.
 
 To set the number of parallel threads use either
 `export OMP_NUM_THREADS=16` for bash or
@@ -23,9 +37,9 @@ To set the number of parallel threads use either
 To run you will need to have a completed *ParFlow* simulation and an
 *EcoSLIM* input file that must be named `slimin.txt` and follow the
 format described below. Note that the slim input file does not need to be co-located
-with the ParFlow simulation.  
+with the ParFlow simulation.
 
-To run simply execute `EcoSLIM.exe` from the directory that contains the
+To run simply execute the `EcoSLIM.exe` binary in the directory that contains the
 `slimin.txt` input file.
 
 Refer to the *Examples* directory described below for example workflows
