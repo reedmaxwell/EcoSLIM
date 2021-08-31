@@ -14,7 +14,7 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES "PGI")
   set(DEBUG_FLAGS "-C")
 endif()
 
-#set(CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} ${DEBUG_FLAGS}")
+set(CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} ${DEBUG_FLAGS}")
 
 set(SOURCE ran1.mod.f90 EcoSLIM.f90 pfb_read.f90 vtk_write.f90	vtk_write_points.f90)
 
