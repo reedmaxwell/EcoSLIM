@@ -23,3 +23,5 @@ add_executable(EcoSLIM.exe ${SOURCE})
 if(OpenMP_Fortran_FOUND)
   target_link_libraries(EcoSLIM.exe PUBLIC OpenMP::OpenMP_Fortran)
 endif()
+
+install(TARGETS EcoSLIM.exe DESTINATION bin)
