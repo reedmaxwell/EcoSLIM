@@ -14,7 +14,21 @@ For more details on the model and if you use EcoSLIM in published work please ci
 
 Building and Running
 --------------------
-To build *EcoSLIM* simply type `make` in the directory with the main directory where `EcoSLIM.f90` sits.
+To build *EcoSLIM* first use CMake to configure the build.  EcoSLIM will build with OpenMP if it is found by CMake.
+
+```
+mkdir build
+cd build
+cmake ..
+```
+
+The next step is to build *EcoSLIM*
+
+```
+make
+```
+
+If this is successful there should be an `EcoSLIM.exe` executable in the build directory.
 
 To set the number of parallel threads use either
 `export OMP_NUM_THREADS=16` for bash or
@@ -23,9 +37,9 @@ To set the number of parallel threads use either
 To run you will need to have a completed *ParFlow* simulation and an
 *EcoSLIM* input file that must be named `slimin.txt` and follow the
 format described below. Note that the slim input file does not need to be co-located
-with the ParFlow simulation.  
+with the ParFlow simulation.
 
-To run simply execute `EcoSLIM.exe` from the directory that contains the
+To run simply execute the `EcoSLIM.exe` binary in the directory that contains the
 `slimin.txt` input file.
 
 Refer to the *Examples* directory described below for example workflows
@@ -216,3 +230,22 @@ is provided here. For more details on how to run the examples refer to the
 readme files in that directory. Note that the *testing* folder contains tests that were used for development purposes and which are not necessarily  maintained with updated versions. User should refer only to the *Examples* folder. 
 1. **ParFlow_SteadyFlux**: A hillslope domain with constant recharge and ET applied at the top and bottom of the hill respectively.  Example is setup to run *EcoSLIM* on transient *ParFlow* outputs without *CLM*. The documentation for this example includes all the steps for running *ParFlow* and *EcoSLIM*
 2. **Hillslope_Simulations/paper_cases**:Hillslope Cases Run in [Maxwell et al. Ecohydrology](https://doi.org/10.1002/eco.2042), see readme file for more details
+
+
+FAQ
+---------------
+
+If you wish to build *EcoSLIM* with debugging enabled, use the
+standard method of setting the CMake build type to debug:
+
+```
+cmake -DCMAKE_BUILD_TYPE=debug ..
+```
+
+Explicitly controlling the Fortran compiler used is done by setting
+the FC environment variable for the CMake configure, here we use the
+Intel Fortran compiler:
+
+```
+FC=ifort cmake ..
+```
