@@ -9,6 +9,7 @@
 ! Contributors: Laura Condon (lecondon@email.arizona.edu)
 !               Mohammad Danesh-Yazdi (danesh@sharif.edu)
 !               Lindsay Bearup (lbearup@usbr.gov)
+!               Zach Perzan (zperzan@stanford.edu)
 !
 ! released under GNU LPGL, see LICENSE file for details
 !
@@ -92,7 +93,7 @@ real*8,allocatable::P(:,:)
         ! P(np,7) = Particle source (1=IC, 2=rain, 3=snowmelt...)
         ! P(np,8) = Particle Status (1=active, 0=inactive)
         ! P(np,9) = concentration
-        ! P(np,10) = Exit status (1=outflow, 2=ET...)
+        ! P(np,10) = Exit status (1=outflow, 2=ET, etc...)
         ! P(np,11) = Particle Number (This is a unique integer identifier for the particle)
         ! P(np,12) = Partical Initial X coordinate [L]
         ! P(np,13) = Partical Initial Y coordinate [L]
@@ -140,8 +141,9 @@ real*8,allocatable::Porosity(:,:,:)      ! Porosity (read from ParFlow)
 real*8,allocatable::EvapTrans(:,:,:)     ! CLM EvapTrans (read from ParFlow, [1/T] units)
 real*8,allocatable::CLMvars(:,:,:)     ! CLM Output (read from ParFlow, following single file
                                        ! CLM output as specified in the manual)
-real*8, allocatable::Pnts(:,:), DEM(:,:) ! DEM and grid points for concentration output
-real*8, allocatable::Ind(:,:,:)           ! Indicator file
+real*8,allocatable::Pnts(:,:), DEM(:,:)   ! DEM and grid points for concentration output
+real*8,allocatable::Ind(:,:,:)            ! Indicator file
+real*8,allocatable::BoundFlux(:,:,:)         ! An array of flux across each domain boundary
 
 integer Ploc(3)
         ! Particle's location whithin a cell
@@ -213,10 +215,11 @@ real*8 V_mult
         ! If V_mult = 1, forward tracking
         ! If V_mult = -1, backward tracking
 
-logical clmtrans, clmfile
+logical clmtrans, clmfile, velfile
         ! logical for mode of operation with CLM, will add particles with P-ET > 0
         ! will remove particles if ET > 0
         ! clmfile governs reading of the full CLM output, not just evaptrans
+        ! velfile governs addition of particles to the domain via velocity pfb output
 
 real*8 dtfrac
         ! fraction of dx/Vx (as well as dy/Vy and dz/Vz) assuring
@@ -251,6 +254,20 @@ real*8 Xlow, Xhi, Ylow, Yhi, Zlow, Zhi
         ! Particles initial locations i.e., where they are injected
         ! into the domain.
 
+integer, dimension(2):: xbd, ybd, zbd
+        ! used to calculate flux at corners of domain
+        ! xbd = (/ 1, nx /)
+        ! ybd = (/ 1, ny /)
+        ! zbd = (/ 1, nz /)
+integer, dimension(2):: fluxsign
+        ! sign (+/-) of velocity at the each end of the domain that
+        ! corresponds to flux into the domain
+        ! fluxsign = (/ 1, -1 \)
+real*8 velx, vely, velz
+        ! float of an individual value of Vx, Vy, Vz
+integer xi, yi, zi
+        ! counters within xbd, etc and xfluxsign, etc
+
 ! density of water (M/L3), molecular diffusion (L2/T), fractionation
 real*8 denh2o, moldiff, Efract  !, ran1
 
@@ -259,7 +276,8 @@ real*8 denh2o, moldiff, Efract  !, ran1
 ! timestep
 real*8, allocatable::ET_age(:,:), ET_comp(:,:), PET_balance(:,:), ET_mass(:)
 real*8, allocatable::Out_age(:,:), Out_mass(:,:), Out_comp(:,:)
-integer, allocatable:: ET_np(:), Out_np(:)
+real*8, allocatable::Lat_age(:,:), Lat_mass(:,:), Lat_comp(:,:)
+integer, allocatable:: ET_np(:), Out_np(:), Lat_np(:)
 
 
 real*8  ET_dt, DR_Temp
@@ -425,7 +443,7 @@ allocate(PInLoc(np,3))
 allocate(Sx(nx,ny),Sy(nx,ny), DEM(nx,ny))
 allocate(dz(nz), Zt(0:nz))
 allocate(Vx(nnx,ny,nz), Vy(nx,nny,nz), Vz(nx,ny,nnz))
-allocate(Saturation(nx,ny,nz), Porosity(nx,ny,nz),EvapTrans(nx,ny,nz), Ind(nx,ny,nz))
+allocate(Saturation(nx,ny,nz), Porosity(nx,ny,nz),EvapTrans(nx,ny,nz), Ind(nx,ny,nz), BoundFlux(nx,ny,nz))
 allocate(CLMvars(nx,ny,nzclm))
 allocate(C(n_constituents,nx,ny,nz))
 !allocate(ET_grid(1,nx,ny,nz))
@@ -438,6 +456,7 @@ Vz = 0.0d0
 Saturation = 0.0D0
 Porosity = 0.0D0
 EvapTrans = 0.0d0
+BoundFlux = 0.0d0
 C = 0.0d0
 !ET_grid=0.0d0
 
@@ -483,6 +502,11 @@ Out_mass = 0.0d0
 Out_comp = 0.0d0
 Out_np = 0
 
+allocate(Lat_age(pfnt,5), Lat_comp(pfnt,3), Lat_mass(pfnt,5), Lat_np(pfnt))
+Lat_age = 0.0d0
+Lat_mass = 0.0d0
+Lat_comp = 0.0d0
+Lat_np = 0
 
 ! clear out output particles
 npout = 0
@@ -588,6 +612,13 @@ else
 
 end if
 
+! Read in velfile
+read(10,*) velfile  !bool of whether or not to add particles using velocity fluxes
+write(11,*)
+write(11,*)  'velfile: ',velfile,' whether or not to add particles from velocity fluxes'
+
+
+
 ! end of SLIM input
 close(10)
 
@@ -623,7 +654,7 @@ if (nind>0) then
     write(11,*) 'Read Indicator File:', fname
      !write(11,*) 'IndREAD:', nx, ny, nztemp
   else
-    write(11,*) 'WARNING: indicator flage >0 but no indicator  file provided'
+    write(11,*) 'WARNING: indicator flag >0 but no indicator  file provided'
   end if ! Ind
 end if
 
@@ -966,14 +997,81 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
         call system_clock(T2)
 
         IO_time_read = IO_time_read + (T2-T1)
+        
+        ! Construct BoundFlux, an array of the flux (in 1/T) of water into/out of domain
+        if (velfile) then
+        ! convert from L/T to 1/T units by dividing by dz
+        ! for sides, loop through z to account for variable dz in L/T to 1/T conversion
+        do k = 1, nz
+            BoundFlux(1,:,k)  = Vx(1,:,k)/dz(k)  ! left
+            BoundFlux(nx,:,k) = -Vx(nx+1,:,k)/dz(k) ! right, positive flux is into domain
+            BoundFlux(:,1,k)  = Vy(:,1,k)/dz(k)  ! front
+            BoundFlux(:,ny,k) = -Vy(:,ny+1,k)/dz(k) ! back, positive flux is into domain
+        end do
+        
+        BoundFlux(:,:,1)  = Vz(:,:,1)/dz(1)   ! bottom
+        BoundFlux(:,:,nz) = -Vz(:,:,nz+1)/dz(nz) ! top, positive flux is into domain
+        
+        ! At edges and corners of domain, assign BoundFlux as whichever velocity magnitude is largest
+        ! Note that this doesn't allow simultaneous inflow and outflow into a single cell
+        ! For example, if water flows into the top of cell (1,1,nz) then immediately out the
+        ! side of the same cell
+        ! x-y edges
+        BoundFlux(1,1,:) = merge(Vx(1,1,:), Vy(1,1,:), abs(Vx(1,1,:)) > abs(Vy(1,1,:)))
+        BoundFlux(1,ny,:) = merge(Vx(1,ny,:), -Vy(1,ny,:), abs(Vx(1,ny,:)) > abs(Vy(1,ny,:)))
+        BoundFlux(nx,1,:) = merge(-Vx(nx,1,:), Vy(nx,1,:), abs(Vx(nx,1,:)) > abs(Vy(nx,1,:)))
+        BoundFlux(nx,ny,:) = merge(-Vx(nx,ny,:), -Vy(nx,ny,:), abs(Vx(nx,ny,:)) > abs(Vy(nx,ny,:)))
+        ! x-z edges
+        BoundFlux(1,:,1) = merge(Vx(1,:,1), Vz(1,:,1), abs(Vx(1,:,1)) > abs(Vz(1,:,1)))
+        BoundFlux(1,:,nz) = merge(Vx(1,:,nz), -Vz(1,:,nz), abs(Vx(1,:,nz)) > abs(Vz(1,:,nz)))
+        BoundFlux(nx,:,1) = merge(-Vx(nx,:,1), Vz(nx,:,1), abs(Vx(nx,:,1)) > abs(Vz(nx,:,1)))
+        BoundFlux(nx,:,nz) = merge(-Vx(nx,:,nz), -Vz(nx,:,nz), abs(Vx(nx,:,nz)) > abs(Vz(nx,:,nz)))
+        ! y-z edges
+        BoundFlux(:,1,1) = merge(Vy(:,1,1), Vz(:,1,1), abs(Vy(:,1,1)) > abs(Vz(:,1,1)))
+        BoundFlux(:,1,nz) = merge(Vy(:,1,nz), -Vz(:,1,nz), abs(Vy(:,1,nz)) > abs(Vz(:,1,nz)))
+        BoundFlux(:,ny,1) = merge(-Vy(:,ny,1), Vz(:,ny,1), abs(Vy(:,ny,1)) > abs(Vz(:,ny,1)))
+        BoundFlux(:,ny,nz) = merge(-Vy(:,ny,nz), -Vz(:,ny,nz), abs(Vy(:,ny,nz)) > abs(Vz(:,ny,nz)))
 
+        ! now the corners
+        xbd = (/ 1, nx /)
+        ybd = (/ 1, ny /)
+        zbd = (/ 1, nz /)
+        fluxsign = (/ 1, -1 /)
+        do xi = 1, 2
+        do yi = 1, 2
+        do zi = 1, 2
+        velx = Vx(xbd(xi),ybd(yi),zbd(zi))
+        vely = Vy(xbd(xi),ybd(yi),zbd(zi))
+        velz = Vz(xbd(xi),ybd(yi),zbd(zi))
+        if (max(abs(velx), abs(vely), abs(velz)) == abs(velx)) then
+            BoundFlux(xbd(xi),ybd(yi),zbd(zi)) = fluxsign(xi)*velx
+        elseif (max(abs(velx), abs(vely), abs(velz)) == abs(vely)) then
+            BoundFlux(xbd(xi),ybd(yi),zbd(zi)) = fluxsign(yi)*vely
+        else
+            BoundFlux(xbd(xi),ybd(yi),zbd(zi)) = fluxsign(zi)*velz
+        end if
+        end do
+        end do
+        end do
+        
+        end if ! end velfile if
+        
+        ! If included, add evaptrans flux to BoundFlux
+        ! Note that we could solely use velocity files, but combining velocity and 
+        ! evaptrans flux data into a single array preserves backwards compatibility 
+        ! for users running EcoSLIM with ParFlow < v3.10.0
+        if (clmtrans) then
+            ! only copy over surface layer
+            BoundFlux(:,:,nz) = EvapTrans(:,:,nz)
+        end if
+        
         ! Determine whether to perform forward or backward patricle tracking
         Vx = Vx * V_mult
         Vy = Vy * V_mult
         Vz = Vz * V_mult
         i_added_particles = 0
         ! Add particles if P-ET > 0
-        if (clmtrans) then   !check if this is our mode of operation, read in the ParFlow evap trans file
+        if (velfile .or. clmtrans) then   !check if this is our mode of operation, read in the ParFlow evap trans file
                              ! normally generated by CLM but not exclusively, to assign new particles to any
                              ! additional water fluxes (rain, snow, irrigation water) with the mass of each
                              ! particle assigned to be the mass of the NEW water
@@ -988,11 +1086,11 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
         do i = 1, nx
         do j = 1, ny
         do k = 1, nz
-        if (EvapTrans(i,j,k)> 0.0d0) then
+        if (BoundFlux(i,j,k)> 0.0d0) then
         ! sum water inputs in PET 1 = P, 2 = ET, kk= PF timestep
         ! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass of water input
         PET_balance(kk,1) = PET_balance(kk,1) &
-                            + pfdt*EvapTrans(i,j,k)*dx*dy*dz(k)*denh2o
+                            + pfdt*BoundFlux(i,j,k)*dx*dy*dz(k)*denh2o
         do ji = 1, iflux_p_res
           if (np_active < np) then   ! check if we have particles left
             np_active = np_active + 1
@@ -1024,7 +1122,7 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
             if (iflux_p_res >= 0) then
                P(ii,4) = 0.0d0 +ran1(ir)*pfdt
 
-               !If you are using an indicator file than time according to the local indicator
+               !If you are using an indicator file then time according to the local indicator
                if (nind > 0) then
                  Ploc(1) = floor(P(ii,1) / dx)
                  Ploc(2) = floor(P(ii,2) / dy)
@@ -1042,10 +1140,8 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
             P(ii,5) = 0.0d0
             P(ii,15) = part_tstart + float((kk-1))*pfdt + P(ii,4) !recording particle insert time
             ! mass of water flux into the cell divided up among the particles assigned to that cell
-            !P(ii,6) = (1.0d0/float(iflux_p_res))   &
-            !        *P(ii,4)*EvapTrans(i,j,k)*dx*dy*dz(k)*denh2o  !! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass
             P(ii,6) = (1.0d0/float(abs(iflux_p_res)))   &
-                    *pfdt*EvapTrans(i,j,k)*dx*dy*dz(k)*denh2o  !! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass
+                    *pfdt*BoundFlux(i,j,k)*dx*dy*dz(k)*denh2o  !! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass
                     !! check if input is rain or snowmelt
             if(CLMvars(i,j,11) > 0.0) then !this is snowmelt
               P(ii,7) = 3.0d0 ! Snow composition
@@ -1067,14 +1163,14 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
         ! sum water inputs in PET 1 = P, 2 = ET, kk= PF timestep
         ! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass of water input
         PET_balance(kk,2) = PET_balance(kk,2) &
-                            + pfdt*EvapTrans(i,j,k)*dx*dy*dz(k)*denh2o
+                            + pfdt*BoundFlux(i,j,k)*dx*dy*dz(k)*denh2o
         end if  !! end if for P-ET > 0
         end do
         end do
         end do
 
         end if  !! second particle check to avoid array loop if we are out of particles
-        end if  !! end if for clmtrans logical
+        end if  !! end if for clmtrans/velfile logical
         !write(11,*) ' Time Step: ',Time_Next(kk),' NP Active:',np_active
 
         call system_clock(T1)
@@ -1084,10 +1180,11 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
 !$OMP PARALLEL PRIVATE(Ploc, k, l, ik, Clocx, Clocy, Clocz, Vpx, Z, z1, z2, z3)   &
 !$OMP& PRIVATE(Vpy, Vpz, particledt, delta_time,local_flux, et_flux)  &
 !$OMP& PRIVATE(water_vol, Zr, itime_loc, advdt, DR_Temp, ir) &
-!$OMP& SHARED(EvapTrans, Vx, Vy, Vz, P, Saturation, Porosity, dx, dy, dz, denh2o, Ind) &
+!$OMP& SHARED(BoundFlux, EvapTrans, Vx, Vy, Vz, P, Saturation, Porosity, dx, dy, dz, denh2o, Ind) &
 !$OMP& SHARED(np_active, pfdt, nz, nx, ny, xmin, ymin, zmin, xmax, ymax, zmax, nind)  &
 !$OMP& SHARED(kk, pfnt, out_age, out_mass, out_comp, out_np, dtfrac, et_age, et_mass) &
 !$OMP& SHARED(et_comp, et_np, moldiff, efract, C,ipwrite) &
+!$OMP& SHARED(lat_age, lat_mass, lat_comp, lat_np) &
 !$OMP& Default(private)
 
 ! loop over active particles
@@ -1115,17 +1212,7 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
                                 end if
                         end do
 
-                ! check to make sure particles are in central part of the domain and if not
-                ! apply some boundary condition to them
-                !! check if particles are in domain, need to expand this to include better treatment of BC's
-                if ((P(ii,1) < Xmin).or.(P(ii,2)<Ymin).or.(P(ii,3)<Zmin).or.  &
-                (P(ii,1)>=Xmax).or.(P(ii,2)>=Ymax).or.(P(ii,3)>=(Zmax-dz(nz)))) then
-
                  ! if outflow at the top add to the outflow age
-                !Z = 0.0d0
-                !do k = 1, nz
-                !Z = Z + dz(k)
-                !end do
                 if ( (P(ii,3) >= Zmax-(dz(nz)*0.5d0)).and.   &
                 (Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)  == 1.0).and.  &
                  (Vz(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) > 0.0) ) then
@@ -1136,7 +1223,8 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
                 Out_age(itime_loc,1) = Out_age(itime_loc,1) + P(ii,4)*P(ii,6)
                 !$OMP ATOMIC
                 Out_mass(itime_loc,1) = Out_mass(itime_loc,1)  + P(ii,6)
-
+                
+                ! Update outflow composition based on particle composition
                 if (P(ii,7) == 1.0) then
                 !$OMP ATOMIC
                 Out_comp(itime_loc,1) = Out_comp(itime_loc,1) + P(ii,6)
@@ -1149,7 +1237,6 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
                 !$OMP ATOMIC
                 Out_comp(itime_loc,3) = Out_comp(itime_loc,3) + P(ii,6)
                 end if
-                !Out_comp(itime_loc,1) = Out_comp(itime_loc,1) + P(ii,7)*P(ii,6)
 
                 !$OMP ATOMIC
                 Out_np(itime_loc) = Out_np(itime_loc) + 1
@@ -1158,15 +1245,14 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
 !               write(22,220) Time_Next(kk), P(ii,1), P(ii,2), P(ii,3), P(ii,4), P(ii,6), P(ii,7)
     220         FORMAT(7(e12.5))
 !                flush(21)
-!                !flag particle as inactive
+! !                !flag particle as inactive
                 P(ii,8) = 0.0d0
                  !flag as exiting via Outflow
                 P(ii,10) = 1.0d0
                 goto 999
 
                 end if
-                ! otherwise we just leave it in the domain to reflect
-                end if
+                
 
                         ! Find each particle's factional cell location
                         Clocx = (P(ii,1) - float(Ploc(1))*dx)  / dx
@@ -1180,7 +1266,6 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
 
                         ! Calculate local particle velocity using linear interpolation,
                         ! converting darcy flux to average linear velocity
-
                         Vpx = ((1.0d0-Clocx)*Vx(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) &
                               + Vx(Ploc(1)+2,Ploc(2)+1,Ploc(3)+1)*Clocx)   &
                               /(Porosity(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) &
@@ -1214,8 +1299,9 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
                         particledt = min(advdt(1),advdt(2), advdt(3), &
                                   pfdt*dtfrac  ,delta_time-P(ii,4))
 
-                        ! calculate Flux in cell and compare it with the ET flux out of the cell
-                        if (EvapTrans(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) < 0.0d0)then
+                        ! If this is evaptrans outflow, count it as ET
+                        if (clmtrans) then
+                        if (EvapTrans(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) < 0.0d0) then
 
                         ! calculate divergence of Darcy flux in the cell
                         !  in X, Y, Z [L^3 / T]
@@ -1223,7 +1309,8 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
                                      (Vy(Ploc(1)+1,Ploc(2)+2,Ploc(3)+1) - Vy(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)) +  &
                                      (Vz(Ploc(1)+1,Ploc(2)+1,Ploc(3)+2) - Vz(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))
 
-                        ! calculate ET flux volumetrically and compare to
+                        ! calculate ET flux volumetrically
+                        ! 1/T*L*L*L = L^3/T
                         et_flux = abs(EvapTrans(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))*dx*dy*dz(Ploc(3)+1)
 
                         ! compare total water removed from cell by ET with total water available in cell to arrive at a particle
@@ -1231,7 +1318,7 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
                         ! water volume in cell
                         water_vol = dx*dy*dz(Ploc(3)+1)*(Porosity(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1)  &
                         *Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))
-                        !  add that amout of mass to ET BT; check if particle is out of mass
+                        !  add that amount of mass to ET BT; check if particle is out of mass
                         itime_loc = kk
                         ! extra checking for array bounds to provide future flexibilty
                         ! if DT for output != PFDT
@@ -1280,7 +1367,8 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
 
                             goto 999
                         end if
-                        end if
+                        end if ! end-if for evaptrans < 0
+                        end if ! end-if for clmtrans
 
                         ! Advect particle to new location using Euler advection until next time
                         P(ii,1) = P(ii,1) + particledt * Vpx
@@ -1312,12 +1400,64 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
                                    + (z2*DSQRT(moldiff*2.0D0*particledt))**2 + &
                                    (z3*DSQRT(moldiff*2.0D0*particledt))**2)
                         end if
-                        P(ii,16) = P(ii,16) + Ltemp
 
 !!  placeholder for other interactions; potentially added later
 !!
 !!                        if (Ploc(3) == nz-1)  P(ii,9) = P(ii,9) -Efract*particledt*CLMvars(Ploc(1)+1,Ploc(2)+1,7)
 !!
+
+                        ! check if advection/diffusion pushes the particle across a boundary
+                        if ((P(ii,1) < Xmin).or.(P(ii,1) >= Xmax).or. &
+                            (P(ii,2) < Ymin).or.(P(ii,2) >= Ymax).or. &
+                            (P(ii,3) < Zmin).or.(P(ii,3) >= Zmax)) then
+                        
+                        ! Check if there is water flux across this boundary
+                        ! Note that negative BoundFlux is always out of domain, positive is into domain
+                        if (BoundFlux(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) < 0.0) then
+                                itime_loc = kk
+                                if (itime_loc <= 0) itime_loc = 1
+                                if (itime_loc >= pfnt) itime_loc = pfnt
+                                !$OMP ATOMIC
+                                Lat_age(itime_loc,1) = Lat_age(itime_loc,1) + P(ii,4)*P(ii,6)
+                                !$OMP ATOMIC
+                                Lat_mass(itime_loc,1) = Lat_mass(itime_loc,1)  + P(ii,6)
+                                
+                                ! Update outflow composition based on particle composition
+                                if (P(ii,7) == 1.0) then
+                                !$OMP ATOMIC
+                                Lat_comp(itime_loc,1) = Lat_comp(itime_loc,1) + P(ii,6)
+                                end if
+                                if (P(ii,7) == 2.0) then
+                                !$OMP ATOMIC
+                                Lat_comp(itime_loc,2) = Lat_comp(itime_loc,2) + P(ii,6)
+                                end if
+                                if (P(ii,7) == 3.0) then
+                                !$OMP ATOMIC
+                                Lat_comp(itime_loc,3) = Lat_comp(itime_loc,3) + P(ii,6)
+                                end if
+                                !$OMP ATOMIC
+                                Lat_np(itime_loc) = Lat_np(itime_loc) + 1
+                                
+                                ! make particle inactive
+                                P(ii,8) = 0.0d0
+                                !flag as exiting via lateral subsurface outflow
+                                P(ii,10) = 3.0d0
+                                goto 999
+                        else ! otherwise reflect it
+                                ! simple reflection boundary
+                                if (P(ii,3) >=Zmax) P(ii,3) = Zmax- (P(ii,3) - Zmax)
+                                if (P(ii,1) >=Xmax) P(ii,1) = Xmax- (P(ii,1) - Xmax)
+                                if (P(ii,2) >=Ymax) P(ii,2) = Ymax- (P(ii,2) - Ymax)
+                                if (P(ii,2) <=Ymin) P(ii,2) = Ymin+ (Ymin - P(ii,2))
+                                if (P(ii,3) <=Zmin) P(ii,3) = Zmin+ (Zmin - P(ii,3) )
+                                if (P(ii,1) <=Xmin) P(ii,1) = Xmin+ (Xmin - P(ii,1) )
+
+                        end if 
+                        end if ! end-if particle across boundary
+
+                        ! Update flow path length
+                        P(ii,16) = P(ii,16) + Ltemp
+                        
                         ! place to track saturated / groundwater time if needed
                         if(Saturation(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) == 1.0) then
                            P(ii,5) = P(ii,5) + particledt
@@ -1325,7 +1465,7 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
                            P(ii,17) = P(ii,17) + Ltemp
                         end if
 
-                        !If you are using an indicator file than store length and time according to the indicators
+                        !If you are using an indicator file then store length and time according to the indicators
                         if (nind > 0) then
                           itemp=int(Ind(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1))
                           if(itemp>0 .and. itemp <=nind) then
@@ -1336,20 +1476,13 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
 
                         itemp = 0
                         Ltemp=0.0
-                        ! simple reflection boundary
-                        if (P(ii,3) >=Zmax) P(ii,3) = Zmax- (P(ii,3) - Zmax)
-                        if (P(ii,1) >=Xmax) P(ii,1) = Xmax- (P(ii,1) - Xmax)
-                        if (P(ii,2) >=Ymax) P(ii,2) = Ymax- (P(ii,2) - Ymax)
-                        if (P(ii,2) <=Ymin) P(ii,2) = Ymin+ (Ymin - P(ii,2))
-                        if (P(ii,3) <=Zmin) P(ii,3) = Zmin+ (Zmin - P(ii,3) )
-                        if (P(ii,1) <=Xmin) P(ii,1) = Xmin+ (Xmin - P(ii,1) )
 
                         ! write all active particles at concentration in ASCII VisIT 3D file format continuously
                         ! as noted above, this option is very slow compared to VTK binary output
                         if (ipwrite < 0) then
                           if (P(ii,8) == 1.0d0) write(214,61) P(ii,1), P(ii,2), P(ii,3), P(ii,4), P(ii,11)
                         flush(214)
-                      end if !! ipwrite
+                        end if !! ipwrite
 
 
                 end do  ! end of do-while loop for particle time to next time
@@ -1615,9 +1748,9 @@ flush(13)
 ! close ET file
 close(13)
 
-!! write Outflow
+!! write surface outflow
 !
-open(13,file=trim(runname)//'_flow_output.txt')
+open(13,file=trim(runname)//'_surface_outflow.txt')
 write(13,*) 'TIME Out_age Out_comp1 outcomp2 outcomp3 Out_mass Out_NP'
 do ii = 1, pfnt
 if (Out_mass(ii,1) > 0 ) then
@@ -1635,7 +1768,25 @@ if(ipwrite < 0) close(214)
 
 end do
 flush(13)
-! close ET file
+! close surface outflow file
+close(13)
+
+!! write subsurface lateral outflow
+!
+open(13,file=trim(runname)//'_lateral_outflow.txt')
+write(13,*) 'TIME Lat_age Lat_comp1 Lat_comp2 Lat_comp3 Lat_mass Lat_NP'
+do ii = 1, pfnt
+if (Lat_mass(ii,1) > 0 ) then
+Lat_age(ii,:) = Lat_age(ii,:)/(Lat_mass(ii,1))
+Lat_comp(ii,1) = Lat_comp(ii,1)/(Lat_mass(ii,1))
+Lat_comp(ii,2) = Lat_comp(ii,2)/(Lat_mass(ii,1))
+Lat_comp(ii,3) = Lat_comp(ii,3)/(Lat_mass(ii,1))
+end if
+write(13,64) float(ii+tout1-1)*ET_dt, Lat_age(ii,1), Lat_comp(ii,1), &
+               Lat_comp(ii,2), Lat_comp(ii,3), Lat_mass(ii,1), Lat_np(ii)
+end do
+flush(13)
+! close lateral outflow file
 close(13)
 
 !! write P-ET water balance
