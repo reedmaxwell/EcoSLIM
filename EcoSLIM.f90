@@ -274,7 +274,7 @@ real*8 denh2o, moldiff, Efract  !, ran1
 ! time history of ET, time (1,:) and mass for rain (2,:), snow (3,:),
 ! PET balance is water balance flux from PF accumulated over the domain at each
 ! timestep
-real*8, allocatable::ET_age(:,:), ET_comp(:,:), PET_balance(:,:), ET_mass(:)
+real*8, allocatable::ET_age(:,:), ET_comp(:,:), water_balance(:,:), ET_mass(:)
 real*8, allocatable::Out_age(:,:), Out_mass(:,:), Out_comp(:,:)
 real*8, allocatable::Lat_age(:,:), Lat_mass(:,:), Lat_comp(:,:)
 integer, allocatable:: ET_np(:), Out_np(:), Lat_np(:)
@@ -489,12 +489,12 @@ end if
 ! set ET DT to ParFlow one and allocate ET arrays accordingly
 ET_dt = pfdt
 allocate(ET_age(pfnt,5), ET_comp(pfnt,3), ET_mass(pfnt), ET_np(pfnt))
-allocate(PET_balance(pfnt,2))
+allocate(water_balance(pfnt,2))
 ET_age = 0.0d0
 ET_mass = 0.0d0
 ET_comp = 0.0d0
 ET_np = 0
-PET_balance = 0.0D0
+water_balance = 0.0D0
 
 allocate(Out_age(pfnt,5), Out_comp(pfnt,3), Out_mass(pfnt,5), Out_np(pfnt))
 Out_age = 0.0d0
@@ -1089,7 +1089,7 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
         if (BoundFlux(i,j,k)> 0.0d0) then
         ! sum water inputs in PET 1 = P, 2 = ET, kk= PF timestep
         ! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass of water input
-        PET_balance(kk,1) = PET_balance(kk,1) &
+        water_balance(kk,1) = water_balance(kk,1) &
                             + pfdt*BoundFlux(i,j,k)*dx*dy*dz(k)*denh2o
         do ji = 1, iflux_p_res
           if (np_active < np) then   ! check if we have particles left
@@ -1162,7 +1162,7 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
         else !! ET not P
         ! sum water inputs in PET 1 = P, 2 = ET, kk= PF timestep
         ! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass of water input
-        PET_balance(kk,2) = PET_balance(kk,2) &
+        water_balance(kk,2) = water_balance(kk,2) &
                             + pfdt*BoundFlux(i,j,k)*dx*dy*dz(k)*denh2o
         end if  !! end if for P-ET > 0
         end do
@@ -1661,7 +1661,7 @@ end if
 
 ! write out summary of mass, age, particles for this timestep
   write(11,'(3(i10),3(f12.5),4(1x,e12.5,1x),3(i8),2(i12))') kk, pfkk, outkk, Time_Next(kk), mean_age , mean_comp, mean_mass, &
-                                          total_mass,  PET_balance(kk,1), PET_balance(kk,2), &
+                                          total_mass,  water_balance(kk,1), water_balance(kk,2), &
                                           i_added_particles,  &
                                           ET_np(kk), Out_np(kk), np_active,np_active2
   flush(11)
@@ -1791,11 +1791,10 @@ close(13)
 
 !! write P-ET water balance
 !
-open(13,file=trim(runname)//'_PET_balance.txt')
+open(13,file=trim(runname)//'_water_balance.txt')
 write(13,*) 'TIME P[kg] ET[kg]'
 do ii = 1, pfnt
-!write(13,'(3(e12.5,2x))') float(ii)*ET_dt, PET_balance(ii,1), PET_balance(ii,2)
-write(13,'(3(e12.5,2x))') float(ii+tout1-1)*ET_dt, PET_balance(ii,1), PET_balance(ii,2)
+write(13,'(3(e12.5,2x))') float(ii+tout1-1)*ET_dt, water_balance(ii,1), water_balance(ii,2)
 end do
 flush(13)
 ! close ET file
