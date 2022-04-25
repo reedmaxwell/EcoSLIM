@@ -93,7 +93,7 @@ real*8,allocatable::P(:,:)
         ! P(np,7) = Particle source (1=IC, 2=rain, 3=snowmelt...)
         ! P(np,8) = Particle Status (1=active, 0=inactive)
         ! P(np,9) = concentration
-        ! P(np,10) = Exit status (1=outflow, 2=ET, etc...)
+        ! P(np,10) = Exit status (1=surface outflow, 2=ET, 3=subsurface outflow)
         ! P(np,11) = Particle Number (This is a unique integer identifier for the particle)
         ! P(np,12) = Partical Initial X coordinate [L]
         ! P(np,13) = Partical Initial Y coordinate [L]
@@ -276,9 +276,9 @@ real*8 denh2o, moldiff, Efract  !, ran1
 ! PET balance is water balance flux from PF accumulated over the domain at each
 ! timestep
 real*8, allocatable::ET_age(:,:), ET_comp(:,:), water_balance(:,:), ET_mass(:)
-real*8, allocatable::Out_age(:,:), Out_mass(:,:), Out_comp(:,:)
-real*8, allocatable::Lat_age(:,:), Lat_mass(:,:), Lat_comp(:,:)
-integer, allocatable:: ET_np(:), Out_np(:), Lat_np(:)
+real*8, allocatable::Surf_age(:,:), Surf_mass(:,:), Surf_comp(:,:)
+real*8, allocatable::Subsurf_age(:,:), Subsurf_mass(:,:), Subsurf_comp(:,:)
+integer, allocatable:: ET_np(:), Surf_np(:), Subsurf_np(:)
 
 
 real*8  ET_dt, DR_Temp
@@ -509,17 +509,17 @@ ET_comp = 0.0d0
 ET_np = 0
 water_balance = 0.0D0
 
-allocate(Out_age(pfnt,5), Out_comp(pfnt,3), Out_mass(pfnt,5), Out_np(pfnt))
-Out_age = 0.0d0
-Out_mass = 0.0d0
-Out_comp = 0.0d0
-Out_np = 0
+allocate(Surf_age(pfnt,5), Surf_comp(pfnt,3), Surf_mass(pfnt,5), Surf_np(pfnt))
+Surf_age = 0.0d0
+Surf_mass = 0.0d0
+Surf_comp = 0.0d0
+Surf_np = 0
 
-allocate(Lat_age(pfnt,5), Lat_comp(pfnt,3), Lat_mass(pfnt,5), Lat_np(pfnt))
-Lat_age = 0.0d0
-Lat_mass = 0.0d0
-Lat_comp = 0.0d0
-Lat_np = 0
+allocate(Subsurf_age(pfnt,5), Subsurf_comp(pfnt,3), Subsurf_mass(pfnt,5), Subsurf_np(pfnt))
+Subsurf_age = 0.0d0
+Subsurf_mass = 0.0d0
+Subsurf_comp = 0.0d0
+Subsurf_np = 0
 
 ! clear out output particles
 npout = 0
@@ -1186,18 +1186,18 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
             P(ii,10) = 0.0d0  ! Particle hasn't exited domain
 
         else
-          write(11,*) ' **Warning rainfall input but no paricles left'
+          write(11,*) ' **Warning water input but no paricles left'
           write(11,*) ' **Exiting code gracefully writing restart '
           goto 9090
         end if  !! do we have particles left?
       end do !! for flux particle resolution
 
-        else !! ET not P
+        else !! water removal
         ! sum water inputs in PET 1 = P, 2 = ET, kk= PF timestep
         ! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass of water input
         water_balance(kk,2) = water_balance(kk,2) &
                             + pfdt*BoundFlux(i,j,k)*dx*dy*dz(k)*denh2o
-        end if  !! end if for P-ET > 0
+        end if  !! end if for BoundFlux < 0
         end do
         end do
         end do
@@ -1215,9 +1215,9 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
 !$OMP& PRIVATE(water_vol, Zr, itime_loc, advdt, DR_Temp, ir) &
 !$OMP& SHARED(BoundFlux, EvapTrans, Vx, Vy, Vz, P, Saturation, Porosity, dx, dy, dz, denh2o, Ind) &
 !$OMP& SHARED(np_active, pfdt, nz, nx, ny, xmin, ymin, zmin, xmax, ymax, zmax, nind)  &
-!$OMP& SHARED(kk, pfnt, out_age, out_mass, out_comp, out_np, dtfrac, et_age, et_mass) &
+!$OMP& SHARED(kk, pfnt, surf_age, surf_mass, surf_comp, surf_np, dtfrac, et_age, et_mass) &
 !$OMP& SHARED(et_comp, et_np, moldiff, efract, C,ipwrite) &
-!$OMP& SHARED(lat_age, lat_mass, lat_comp, lat_np, clmtrans, velfile) &
+!$OMP& SHARED(subsurf_age, subsurf_mass, subsurf_comp, subsurf_np, clmtrans, velfile) &
 !$OMP& Default(private)
 
 ! loop over active particles
@@ -1253,26 +1253,26 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
                 if (itime_loc <= 0) itime_loc = 1
                 if (itime_loc >= pfnt) itime_loc = pfnt
                 !$OMP ATOMIC
-                Out_age(itime_loc,1) = Out_age(itime_loc,1) + P(ii,4)*P(ii,6)
+                Surf_age(itime_loc,1) = Surf_age(itime_loc,1) + P(ii,4)*P(ii,6)
                 !$OMP ATOMIC
-                Out_mass(itime_loc,1) = Out_mass(itime_loc,1)  + P(ii,6)
+                Surf_mass(itime_loc,1) = Surf_mass(itime_loc,1)  + P(ii,6)
                 
                 ! Update outflow composition based on particle composition
                 if (P(ii,7) == 1.0) then
                 !$OMP ATOMIC
-                Out_comp(itime_loc,1) = Out_comp(itime_loc,1) + P(ii,6)
+                Surf_comp(itime_loc,1) = Surf_comp(itime_loc,1) + P(ii,6)
                 end if
                 if (P(ii,7) == 2.0) then
                 !$OMP ATOMIC
-                Out_comp(itime_loc,2) = Out_comp(itime_loc,2) + P(ii,6)
+                Surf_comp(itime_loc,2) = Surf_comp(itime_loc,2) + P(ii,6)
                 end if
                 if (P(ii,7) == 3.0) then
                 !$OMP ATOMIC
-                Out_comp(itime_loc,3) = Out_comp(itime_loc,3) + P(ii,6)
+                Surf_comp(itime_loc,3) = Surf_comp(itime_loc,3) + P(ii,6)
                 end if
 
                 !$OMP ATOMIC
-                Out_np(itime_loc) = Out_np(itime_loc) + 1
+                Surf_np(itime_loc) = Surf_np(itime_loc) + 1
 
 
 !               write(22,220) Time_Next(kk), P(ii,1), P(ii,2), P(ii,3), P(ii,4), P(ii,6), P(ii,7)
@@ -1449,29 +1449,29 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
                                 if (itime_loc <= 0) itime_loc = 1
                                 if (itime_loc >= pfnt) itime_loc = pfnt
                                 !$OMP ATOMIC
-                                Lat_age(itime_loc,1) = Lat_age(itime_loc,1) + P(ii,4)*P(ii,6)
+                                Subsurf_age(itime_loc,1) = Subsurf_age(itime_loc,1) + P(ii,4)*P(ii,6)
                                 !$OMP ATOMIC
-                                Lat_mass(itime_loc,1) = Lat_mass(itime_loc,1)  + P(ii,6)
+                                Subsurf_mass(itime_loc,1) = Subsurf_mass(itime_loc,1)  + P(ii,6)
                                 
                                 ! Update outflow composition based on particle composition
                                 if (P(ii,7) == 1.0) then
                                 !$OMP ATOMIC
-                                Lat_comp(itime_loc,1) = Lat_comp(itime_loc,1) + P(ii,6)
+                                Subsurf_comp(itime_loc,1) = Subsurf_comp(itime_loc,1) + P(ii,6)
                                 end if
                                 if (P(ii,7) == 2.0) then
                                 !$OMP ATOMIC
-                                Lat_comp(itime_loc,2) = Lat_comp(itime_loc,2) + P(ii,6)
+                                Subsurf_comp(itime_loc,2) = Subsurf_comp(itime_loc,2) + P(ii,6)
                                 end if
                                 if (P(ii,7) == 3.0) then
                                 !$OMP ATOMIC
-                                Lat_comp(itime_loc,3) = Lat_comp(itime_loc,3) + P(ii,6)
+                                Subsurf_comp(itime_loc,3) = Subsurf_comp(itime_loc,3) + P(ii,6)
                                 end if
                                 !$OMP ATOMIC
-                                Lat_np(itime_loc) = Lat_np(itime_loc) + 1
+                                Subsurf_np(itime_loc) = Subsurf_np(itime_loc) + 1
                                 
                                 ! make particle inactive
                                 P(ii,8) = 0.0d0
-                                !flag as exiting via lateral subsurface outflow
+                                !flag as exiting via subsurface outflow
                                 P(ii,10) = 3.0d0
                                 goto 999
                         else ! otherwise reflect it
@@ -1694,7 +1694,7 @@ end if
   write(11,'(3(i10),3(f12.5),4(1x,e12.5,1x),3(i8),2(i12))') kk, pfkk, outkk, Time_Next(kk), mean_age , mean_comp, mean_mass, &
                                           total_mass,  water_balance(kk,1), water_balance(kk,2), &
                                           i_added_particles,  &
-                                          ET_np(kk), Out_np(kk), np_active,np_active2
+                                          ET_np(kk), Surf_np(kk), np_active,np_active2
   flush(11)
 
 np_active = np_active2
@@ -1782,18 +1782,17 @@ close(13)
 !! write surface outflow
 !
 open(13,file=trim(runname)//'_surface_outflow.txt')
-write(13,*) 'TIME Out_age Out_comp1 outcomp2 outcomp3 Out_mass Out_NP'
+write(13,*) 'TIME Surf_age Surf_comp1 outcomp2 outcomp3 Surf_mass Surf_NP'
 do ii = 1, pfnt
-if (Out_mass(ii,1) > 0 ) then
-Out_age(ii,:) = Out_age(ii,:)/(Out_mass(ii,1))
-Out_comp(ii,1) = Out_comp(ii,1)/(Out_mass(ii,1))
-Out_comp(ii,2) = Out_comp(ii,2)/(Out_mass(ii,1))
-Out_comp(ii,3) = Out_comp(ii,3)/(Out_mass(ii,1))
-!Out_mass(ii,:) = Out_mass(ii,:)/(Out_mass(ii,:))
+if (Surf_mass(ii,1) > 0 ) then
+Surf_age(ii,:) = Surf_age(ii,:)/(Surf_mass(ii,1))
+Surf_comp(ii,1) = Surf_comp(ii,1)/(Surf_mass(ii,1))
+Surf_comp(ii,2) = Surf_comp(ii,2)/(Surf_mass(ii,1))
+Surf_comp(ii,3) = Surf_comp(ii,3)/(Surf_mass(ii,1))
 end if
-!write(13,64) float(ii)*ET_dt, Out_age(ii,1), Out_comp(ii,1), Out_mass(ii,1), Out_np(ii)
-write(13,64) float(ii+tout1-1)*ET_dt, Out_age(ii,1), Out_comp(ii,1), &
-               Out_comp(ii,2), Out_comp(ii,3), Out_mass(ii,1), Out_np(ii)
+!write(13,64) float(ii)*ET_dt, Surf_age(ii,1), Surf_comp(ii,1), Surf_mass(ii,1), Surf_np(ii)
+write(13,64) float(ii+tout1-1)*ET_dt, Surf_age(ii,1), Surf_comp(ii,1), &
+               Surf_comp(ii,2), Surf_comp(ii,3), Surf_mass(ii,1), Surf_np(ii)
 
 if(ipwrite < 0) close(214)
 
@@ -1802,28 +1801,28 @@ flush(13)
 ! close surface outflow file
 close(13)
 
-!! write subsurface lateral outflow
+!! write subsurface outflow
 !
-open(13,file=trim(runname)//'_lateral_outflow.txt')
-write(13,*) 'TIME Lat_age Lat_comp1 Lat_comp2 Lat_comp3 Lat_mass Lat_NP'
+open(13,file=trim(runname)//'_subsurface_outflow.txt')
+write(13,*) 'TIME Subsurf_age Subsurf_comp1 Subsurf_comp2 Subsurf_comp3 Subsurf_mass Subsurf_NP'
 do ii = 1, pfnt
-if (Lat_mass(ii,1) > 0 ) then
-Lat_age(ii,:) = Lat_age(ii,:)/(Lat_mass(ii,1))
-Lat_comp(ii,1) = Lat_comp(ii,1)/(Lat_mass(ii,1))
-Lat_comp(ii,2) = Lat_comp(ii,2)/(Lat_mass(ii,1))
-Lat_comp(ii,3) = Lat_comp(ii,3)/(Lat_mass(ii,1))
+if (Subsurf_mass(ii,1) > 0 ) then
+Subsurf_age(ii,:) = Subsurf_age(ii,:)/(Subsurf_mass(ii,1))
+Subsurf_comp(ii,1) = Subsurf_comp(ii,1)/(Subsurf_mass(ii,1))
+Subsurf_comp(ii,2) = Subsurf_comp(ii,2)/(Subsurf_mass(ii,1))
+Subsurf_comp(ii,3) = Subsurf_comp(ii,3)/(Subsurf_mass(ii,1))
 end if
-write(13,64) float(ii+tout1-1)*ET_dt, Lat_age(ii,1), Lat_comp(ii,1), &
-               Lat_comp(ii,2), Lat_comp(ii,3), Lat_mass(ii,1), Lat_np(ii)
+write(13,64) float(ii+tout1-1)*ET_dt, Subsurf_age(ii,1), Subsurf_comp(ii,1), &
+               Subsurf_comp(ii,2), Subsurf_comp(ii,3), Subsurf_mass(ii,1), Subsurf_np(ii)
 end do
 flush(13)
-! close lateral outflow file
+! close subsurface outflow file
 close(13)
 
 !! write P-ET water balance
 !
 open(13,file=trim(runname)//'_water_balance.txt')
-write(13,*) 'TIME P[kg] ET[kg]'
+write(13,*) 'TIME In[kg] Out[kg]'
 do ii = 1, pfnt
 write(13,'(3(e12.5,2x))') float(ii+tout1-1)*ET_dt, water_balance(ii,1), water_balance(ii,2)
 end do
