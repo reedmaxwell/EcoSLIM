@@ -205,7 +205,9 @@ character*200 runname, filenum, filenumout, pname, fname, vtk_file, DEMname, Ind
         ! vtk_file = concentration file
         ! DEMname = DEM file name
         ! Indname = Indicator File name
-
+integer nlines
+        ! number of lines in slimin.txt
+        
 real*8 Clocx, Clocy, Clocz, Z, maxz
         ! The fractional location of each particle within it's grid cell
         ! Particle Z location
@@ -254,11 +256,10 @@ real*8 Xlow, Xhi, Ylow, Yhi, Zlow, Zhi
         ! Particles initial locations i.e., where they are injected
         ! into the domain.
 
-integer, dimension(2):: xbd, ybd, zbd
+integer, dimension(2):: xbd, ybd, zbd, vxbd, vybd, vzbd
         ! used to calculate flux at corners of domain
         ! xbd = (/ 1, nx /)
-        ! ybd = (/ 1, ny /)
-        ! zbd = (/ 1, nz /)
+        ! vxbd = (/ 1, nx+1 /)
 integer, dimension(2):: fluxsign
         ! sign (+/-) of velocity at the each end of the domain that
         ! corresponds to flux into the domain
@@ -366,8 +367,20 @@ sort_time = 0
 
 call system_clock(T1)
 
+
+! Count number of lines in slimin.txt to determine file version
+! if nlines >= 31, then velfile option has been provided
+nlines = 0
+open (10,file='slimin.txt')
+do 
+    read (10,*,end=1010)
+    nlines = nlines + 1
+end do
+1010 close(10)
+
 ! open SLIM input .txt file
 open (10,file='slimin.txt')
+
 
 ! read SLIM run name
 read(10,*) runname
@@ -612,11 +625,16 @@ else
 
 end if
 
-! Read in velfile
-read(10,*) velfile  !bool of whether or not to add particles using velocity fluxes
-write(11,*)
-write(11,*)  'velfile: ',velfile,' whether or not to add particles from velocity fluxes'
-
+! Read in velfile, if that line has been provided
+if (nlines >= 31) then
+    read(10,*) velfile  !bool of whether or not to add particles using velocity fluxes
+    write(11,*)
+    write(11,*)  'velfile: ',velfile,' whether or not to add particles from velocity fluxes'
+else
+    velfile = .FALSE.
+    write(11,*)
+    write(11,*)  'Did not find velfile line in slimin.txt. Setting velfile = False'
+end if 
 
 
 ! end of SLIM input
@@ -1003,10 +1021,10 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
         ! convert from L/T to 1/T units by dividing by dz
         ! for sides, loop through z to account for variable dz in L/T to 1/T conversion
         do k = 1, nz
-            BoundFlux(1,:,k)  = Vx(1,:,k)/dz(k)  ! left
-            BoundFlux(nx,:,k) = -Vx(nx+1,:,k)/dz(k) ! right, positive flux is into domain
-            BoundFlux(:,1,k)  = Vy(:,1,k)/dz(k)  ! front
-            BoundFlux(:,ny,k) = -Vy(:,ny+1,k)/dz(k) ! back, positive flux is into domain
+            BoundFlux(1,:,k)  = Vx(1,:,k)/dx  ! left
+            BoundFlux(nx,:,k) = -Vx(nx+1,:,k)/dx ! right, positive flux is into domain
+            BoundFlux(:,1,k)  = Vy(:,1,k)/dy  ! front
+            BoundFlux(:,ny,k) = -Vy(:,ny+1,k)/dy ! back, positive flux is into domain
         end do
         
         BoundFlux(:,:,1)  = Vz(:,:,1)/dz(1)   ! bottom
@@ -1017,32 +1035,47 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
         ! For example, if water flows into the top of cell (1,1,nz) then immediately out the
         ! side of the same cell
         ! x-y edges
-        BoundFlux(1,1,:) = merge(Vx(1,1,:), Vy(1,1,:), abs(Vx(1,1,:)) > abs(Vy(1,1,:)))
-        BoundFlux(1,ny,:) = merge(Vx(1,ny,:), -Vy(1,ny,:), abs(Vx(1,ny,:)) > abs(Vy(1,ny,:)))
-        BoundFlux(nx,1,:) = merge(-Vx(nx,1,:), Vy(nx,1,:), abs(Vx(nx,1,:)) > abs(Vy(nx,1,:)))
-        BoundFlux(nx,ny,:) = merge(-Vx(nx,ny,:), -Vy(nx,ny,:), abs(Vx(nx,ny,:)) > abs(Vy(nx,ny,:)))
+        BoundFlux(1,1,:)   = merge(Vx(1,1,:)/dx, Vy(1,1,:)/dy, &
+                             abs(Vx(1,1,:)/dx) > abs(Vy(1,1,:)/dy))
+        BoundFlux(1,ny,:)  = merge(Vx(1,ny,:)/dx, -Vy(1,ny+1,:)/dy, &
+                             abs(Vx(1,ny,:)/dx) > abs(Vy(1,ny+1,:)/dy))
+        BoundFlux(nx,1,:)  = merge(-Vx(nx+1,1,:)/dx, Vy(nx,1,:)/dy, &
+                             abs(Vx(nx,1,:)/dx) > abs(Vy(nx,1,:)/dy))
+        BoundFlux(nx,ny,:) = merge(-Vx(nx+1,ny,:)/dx, -Vy(nx,ny+1,:)/dy, &
+                             abs(Vx(nx+1,ny,:)/dx) > abs(Vy(nx,ny+1,:)/dy))
         ! x-z edges
-        BoundFlux(1,:,1) = merge(Vx(1,:,1), Vz(1,:,1), abs(Vx(1,:,1)) > abs(Vz(1,:,1)))
-        BoundFlux(1,:,nz) = merge(Vx(1,:,nz), -Vz(1,:,nz), abs(Vx(1,:,nz)) > abs(Vz(1,:,nz)))
-        BoundFlux(nx,:,1) = merge(-Vx(nx,:,1), Vz(nx,:,1), abs(Vx(nx,:,1)) > abs(Vz(nx,:,1)))
-        BoundFlux(nx,:,nz) = merge(-Vx(nx,:,nz), -Vz(nx,:,nz), abs(Vx(nx,:,nz)) > abs(Vz(nx,:,nz)))
+        BoundFlux(1,:,1)   = merge(Vx(1,:,1)/dx, Vz(1,:,1)/dz(1), &
+                             abs(Vx(1,:,1)/dx) > abs(Vz(1,:,1)/dz(1)))
+        BoundFlux(1,:,nz)  = merge(Vx(1,:,nz)/dx, -Vz(1,:,nz+1)/dz(nz), &
+                             abs(Vx(1,:,nz)/dx) > abs(Vz(1,:,nz+1)/dz(nz)))
+        BoundFlux(nx,:,1)  = merge(-Vx(nx+1,:,1)/dx, Vz(nx,:,1)/dz(1), &
+                             abs(Vx(nx+1,:,1)/dx) > abs(Vz(nx,:,1)/dz(1)))
+        BoundFlux(nx,:,nz) = merge(-Vx(nx+1,:,nz)/dx, -Vz(nx,:,nz+1)/dz(nz), &
+                             abs(Vx(nx+1,:,nz)/dx) > abs(Vz(nx,:,nz+1)/dz(nz)))
         ! y-z edges
-        BoundFlux(:,1,1) = merge(Vy(:,1,1), Vz(:,1,1), abs(Vy(:,1,1)) > abs(Vz(:,1,1)))
-        BoundFlux(:,1,nz) = merge(Vy(:,1,nz), -Vz(:,1,nz), abs(Vy(:,1,nz)) > abs(Vz(:,1,nz)))
-        BoundFlux(:,ny,1) = merge(-Vy(:,ny,1), Vz(:,ny,1), abs(Vy(:,ny,1)) > abs(Vz(:,ny,1)))
-        BoundFlux(:,ny,nz) = merge(-Vy(:,ny,nz), -Vz(:,ny,nz), abs(Vy(:,ny,nz)) > abs(Vz(:,ny,nz)))
+        BoundFlux(:,1,1)   = merge(Vy(:,1,1)/dy, Vz(:,1,1)/dz(1), &
+                             abs(Vy(:,1,1)) > abs(Vz(:,1,1)/dz(1)))
+        BoundFlux(:,1,nz)  = merge(Vy(:,1,nz)/dy, -Vz(:,1,nz+1)/dz(nz), &
+                             abs(Vy(:,1,nz)) > abs(Vz(:,1,nz+1)/dz(nz)))
+        BoundFlux(:,ny,1)  = merge(-Vy(:,ny+1,1)/dy, Vz(:,ny,1)/dz(1), &
+                             abs(Vy(:,ny+1,1)) > abs(Vz(:,ny,1)/dz(1)))
+        BoundFlux(:,ny,nz) = merge(-Vy(:,ny+1,nz)/dy, -Vz(:,ny,nz+1)/dz(nz), &
+                             abs(Vy(:,ny+1,nz)) > abs(Vz(:,ny,nz+1)/dz(nz)))
 
-        ! now the corners
+        ! now the corners (ie, where three boundary planes meet)
         xbd = (/ 1, nx /)
         ybd = (/ 1, ny /)
         zbd = (/ 1, nz /)
+        vxbd = (/ 1, nx + 1 /)
+        vybd = (/ 1, ny + 1 /)
+        vzbd = (/ 1, nz + 1 /)
         fluxsign = (/ 1, -1 /)
         do xi = 1, 2
         do yi = 1, 2
         do zi = 1, 2
-        velx = Vx(xbd(xi),ybd(yi),zbd(zi))
-        vely = Vy(xbd(xi),ybd(yi),zbd(zi))
-        velz = Vz(xbd(xi),ybd(yi),zbd(zi))
+        velx = Vx(vxbd(xi),ybd(yi),zbd(zi))
+        vely = Vy(xbd(xi),vybd(yi),zbd(zi))
+        velz = Vz(xbd(xi),ybd(yi),vzbd(zi))
         if (max(abs(velx), abs(vely), abs(velz)) == abs(velx)) then
             BoundFlux(xbd(xi),ybd(yi),zbd(zi)) = fluxsign(xi)*velx
         elseif (max(abs(velx), abs(vely), abs(velz)) == abs(vely)) then
@@ -1184,7 +1217,7 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
 !$OMP& SHARED(np_active, pfdt, nz, nx, ny, xmin, ymin, zmin, xmax, ymax, zmax, nind)  &
 !$OMP& SHARED(kk, pfnt, out_age, out_mass, out_comp, out_np, dtfrac, et_age, et_mass) &
 !$OMP& SHARED(et_comp, et_np, moldiff, efract, C,ipwrite) &
-!$OMP& SHARED(lat_age, lat_mass, lat_comp, lat_np) &
+!$OMP& SHARED(lat_age, lat_mass, lat_comp, lat_np, clmtrans, velfile) &
 !$OMP& Default(private)
 
 ! loop over active particles
@@ -1294,8 +1327,6 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
                         !if (Vpz > 0.0d0) advdt(3) = (((1.0d0-Clocz)*dz(Ploc(3)+1))/dabs(Vpz))
                         !if (Vpz < 0.0d0) advdt(3) = ((Clocz*dz(Ploc(3)+1))/dabs(Vpz))
 
-!                        particledt = min(advdt(1)+1.0E-5,advdt(2)+1.0E-5, advdt(3)+1.0E-5, &
-!                                  pfdt*dtfrac  ,delta_time-P(ii,4)+1.0E-5)
                         particledt = min(advdt(1),advdt(2), advdt(3), &
                                   pfdt*dtfrac  ,delta_time-P(ii,4))
 
@@ -1413,7 +1444,7 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
                         
                         ! Check if there is water flux across this boundary
                         ! Note that negative BoundFlux is always out of domain, positive is into domain
-                        if (BoundFlux(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) < 0.0) then
+                        if ((velfile).and.(BoundFlux(Ploc(1)+1,Ploc(2)+1,Ploc(3)+1) < 0.0)) then
                                 itime_loc = kk
                                 if (itime_loc <= 0) itime_loc = 1
                                 if (itime_loc >= pfnt) itime_loc = pfnt
