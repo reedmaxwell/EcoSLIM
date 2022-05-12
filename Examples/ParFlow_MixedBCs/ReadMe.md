@@ -10,7 +10,7 @@ Because the same forcing is used for the transient simulation as the steady stat
 1. Copy this directory from the GitHub repository to where you want to work
 
 2. Run the spinup tcl script: `tclsh mixedBCs_hillslope2D_spinup.tcl`
-  * This will create the directory 'spinup0.00125' that should will have 20 timesteps of output.
+  * This will create the directory `mixedBCs_hillslope2D_spinup` that should have 20 timesteps of output.
 
 3. Run the transient tcl script: `tclsh mixedBCs_hillslope2D_transient.tcl`
   * This will create the directory 'mixedBCs_hillslope2D_transient'
