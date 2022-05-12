@@ -260,7 +260,7 @@ integer, dimension(2):: xbd, ybd, zbd, vxbd, vybd, vzbd
         ! used to calculate flux at corners of domain
         ! xbd = (/ 1, nx /)
         ! vxbd = (/ 1, nx+1 /)
-integer, dimension(2):: fluxsign
+real*8, dimension(2):: fluxsign
         ! sign (+/-) of velocity at the each end of the domain that
         ! corresponds to flux into the domain
         ! fluxsign = (/ 1, -1 \)
@@ -419,7 +419,7 @@ read(10,*) np
 ! check to make sure we don't assign more particles for IC than we have allocated
 ! in total
 if (np_ic > np) then
-write(11,*) ' warning NP_IC greater than IC'
+write(11,*) ' warning NP_IC greater than NP total'
 np = np_ic
 end if
 
@@ -1069,7 +1069,7 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
         vxbd = (/ 1, nx + 1 /)
         vybd = (/ 1, ny + 1 /)
         vzbd = (/ 1, nz + 1 /)
-        fluxsign = (/ 1, -1 /)
+        fluxsign = (/ 1.0d0, -1.0d0 /)
         do xi = 1, 2
         do yi = 1, 2
         do zi = 1, 2
@@ -1129,7 +1129,7 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
             np_active = np_active + 1
             pid = pid + 1
             ii = np_active             ! increase total number of particles
-            P(ii,11) = pid
+            P(ii,11) = float(pid)
             i_added_particles = i_added_particles + 1   ! increase particle counter for accounting
             ! assign X, Y locations randomly to recharge cell
             P(ii,1) = float(i-1)*dx  +ran1(ir)*dx
@@ -1352,7 +1352,7 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
                         !  add that amount of mass to ET BT; check if particle is out of mass
                         itime_loc = kk
                         ! extra checking for array bounds to provide future flexibilty
-                        ! if DT for output != PFDT
+                        ! if DT for ecoslim output != PFDT
                         if (itime_loc <= 0) itime_loc = 1
                         if (itime_loc >= pfnt) itime_loc = pfnt
                         Zr = ran1(ir)
