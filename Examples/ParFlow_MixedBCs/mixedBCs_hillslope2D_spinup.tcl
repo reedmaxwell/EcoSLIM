@@ -1,6 +1,6 @@
-# overland flux test case for EcoSLIM
-# provides some rainfall and then ET
-# over a hillslope
+# Mixed boundary condition test case for EcoSLIM
+# Demonstrates incorporation of ParFlow DirEquilRefPatch and 
+# FluxConst boundary conditions across a hillslope
 
 set tcl_precision 17
 
@@ -218,7 +218,6 @@ pfset Patch.y-upper.BCPressure.Type		      FluxConst
 pfset Patch.y-upper.BCPressure.Cycle		      "constant"
 pfset Patch.y-upper.BCPressure.alltime.Value	      0.0
 
-## overland flow boundary condition with very heavy rainfall then slight ET
 pfset Patch.z-upper.BCPressure.Type		      FluxConst
 pfset Patch.z-upper.BCPressure.Cycle		      "constant"
 pfset Patch.z-upper.BCPressure.alltime.Value	      -0.0005
