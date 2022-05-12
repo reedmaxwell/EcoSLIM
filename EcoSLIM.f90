@@ -142,8 +142,9 @@ real*8,allocatable::EvapTrans(:,:,:)     ! CLM EvapTrans (read from ParFlow, [1/
 real*8,allocatable::CLMvars(:,:,:)     ! CLM Output (read from ParFlow, following single file
                                        ! CLM output as specified in the manual)
 real*8,allocatable::Pnts(:,:), DEM(:,:)   ! DEM and grid points for concentration output
-real*8,allocatable::Ind(:,:,:)            ! Indicator file
+real*8,allocatable::Ind(:,:,:)            ! Flowpath indicator file
 real*8,allocatable::BoundFlux(:,:,:)         ! An array of flux across each domain boundary
+real*8,allocatable::PSourceBool(:,:,:)       ! Boolean particle source file
 
 integer Ploc(3)
         ! Particle's location whithin a cell
@@ -196,7 +197,7 @@ integer itime_loc
         ! Local indices / counters
 integer*4 ir
 
-character*200 runname, filenum, filenumout, pname, fname, vtk_file, DEMname, Indname
+character*200 runname, filenum, filenumout, pname, fname, vtk_file, DEMname, Indname, Boolname
         ! runname = SLIM runname
         ! filenum = ParFlow file number
         ! filenumout = File number for Ecoslim writing
@@ -205,6 +206,7 @@ character*200 runname, filenum, filenumout, pname, fname, vtk_file, DEMname, Ind
         ! vtk_file = concentration file
         ! DEMname = DEM file name
         ! Indname = Indicator File name
+        ! Boolname = Boolean particle source file name
 integer nlines
         ! number of lines in slimin.txt
         
@@ -217,11 +219,12 @@ real*8 V_mult
         ! If V_mult = 1, forward tracking
         ! If V_mult = -1, backward tracking
 
-logical clmtrans, clmfile, velfile
+logical clmtrans, clmfile, velfile, boolfile
         ! logical for mode of operation with CLM, will add particles with P-ET > 0
         ! will remove particles if ET > 0
         ! clmfile governs reading of the full CLM output, not just evaptrans
         ! velfile governs addition of particles to the domain via velocity pfb output
+        ! boolfile governs reading of a PSourceBool file, which spatially limits particle addition
 
 real*8 dtfrac
         ! fraction of dx/Vx (as well as dy/Vy and dz/Vz) assuring
@@ -369,7 +372,8 @@ call system_clock(T1)
 
 
 ! Count number of lines in slimin.txt to determine file version
-! if nlines >= 31, then velfile option has been provided
+! if nlines >= 31, then velfile option has been provided (even if false) and 
+! if nlines >= 32, then boolfile name has been provided (even if '')
 nlines = 0
 open (10,file='slimin.txt')
 do 
@@ -457,6 +461,7 @@ allocate(Sx(nx,ny),Sy(nx,ny), DEM(nx,ny))
 allocate(dz(nz), Zt(0:nz))
 allocate(Vx(nnx,ny,nz), Vy(nx,nny,nz), Vz(nx,ny,nnz))
 allocate(Saturation(nx,ny,nz), Porosity(nx,ny,nz),EvapTrans(nx,ny,nz), Ind(nx,ny,nz), BoundFlux(nx,ny,nz))
+allocate(PSourceBool(nx,ny,nz))
 allocate(CLMvars(nx,ny,nzclm))
 allocate(C(n_constituents,nx,ny,nz))
 !allocate(ET_grid(1,nx,ny,nz))
@@ -625,15 +630,30 @@ else
 
 end if
 
-! Read in velfile, if that line has been provided
+! Read in velfile and boolfile, if that line has been provided
 if (nlines >= 31) then
     read(10,*) velfile  !bool of whether or not to add particles using velocity fluxes
-    write(11,*)
+    write(11,*) 
     write(11,*)  'velfile: ',velfile,' whether or not to add particles from velocity fluxes'
+    if (nlines >= 32) then
+        read(10,*) Boolname  
+        write(11,*) 
+        if (Boolname /= '') then
+            boolfile = .TRUE.
+            write(11,*)  'Using boolean source files: ', Boolname
+        else
+            boolfile = .FALSE.
+            write(11,*) 'Not using boolean source file'
+        end if
+    end if
+! If neither of these lines are provided, turn velfile and boolfile off
 else
     velfile = .FALSE.
+    boolfile = .FALSE.
     write(11,*)
     write(11,*)  'Did not find velfile line in slimin.txt. Setting velfile = False'
+    write(11,*)
+    write(11,*)  'Did not find PSourceBool line in slimin.txt. Setting boolfile = False'
 end if 
 
 
@@ -749,6 +769,14 @@ write(filenum,'(i5.5)') pfkk
 fname=trim(adjustl(pname))//'.out.satur.'//trim(adjustl(filenum))//'.pfb'
 call pfb_read(Saturation,fname,nx,ny,nz)
 
+! By default, add particles everywhere
+PSourceBool = 1.0d0
+! If we are limiting particles according to boolfile, read in Boolname to PSourceBool
+if (boolfile) then
+    fname=trim(adjustl(Boolname))//'.'//trim(adjustl(filenum))//'.pfb'
+    call pfb_read(PSourceBool,fname,nx,ny,nz)
+end if
+
 ! Intialize random seed
 ir = -3333
 
@@ -777,6 +805,7 @@ do j = 1, ny
 do k = 1, nz
   if (np_active < np) then   ! check if we have particles left
   if (Saturation(i,j,k) > 0.0) then ! check if we are in the active domain
+  if (PSourceBool(i,j,k) == 1.0d0) then ! check if we should add particles here
   do ij = 1, np_ic
   np_active = np_active + 1
   pid=pid + 1
@@ -815,6 +844,7 @@ do k = 1, nz
         C(4,i,j,k) = C(4,i,j,k) + P(ii,8)*P(ii,7)*P(ii,6)
         C(3,i,j,k) = C(3,i,j,k) + P(ii,8)*P(ii,6)
 end do   ! particles per cell
+end if   ! end-if for PSourceBool
 end if   !  active domain
 else
   write(11,*) ' **Warning IC input but no paricles left'
@@ -976,7 +1006,6 @@ end if !! ipwrite < 0
 pfkk = pft1 - 1
 outkk = outkk - 1
 do kk = 1, pfnt
-
 !! reset ParFlow counter for cycles
 if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
         call system_clock(T1)
@@ -987,7 +1016,7 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
 
         ! Read the velocities computed by ParFlow
         write(filenum,'(i5.5)') pfkk
-
+        
         fname=trim(adjustl(pname))//'.out.velx.'//trim(adjustl(filenum))//'.pfb'
         call pfb_read(Vx,fname,nx+1,ny,nz)
 
@@ -999,7 +1028,7 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
 
         fname=trim(adjustl(pname))//'.out.satur.'//trim(adjustl(filenum))//'.pfb'
         call pfb_read(Saturation,fname,nx,ny,nz)
-
+        
         if (clmtrans) then
         ! Read in the Evap_Trans
         fname=trim(adjustl(pname))//'.out.evaptrans.'//trim(adjustl(filenum))//'.pfb'
@@ -1012,6 +1041,12 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
         end if
         end if
 
+        if (boolfile) then
+        ! Read in PSourceBool
+        fname=trim(adjustl(Boolname))//'.'//trim(adjustl(filenum))//'.pfb'
+        call pfb_read(PSourceBool,fname,nx,ny,nz)
+        end if
+        
         call system_clock(T2)
 
         IO_time_read = IO_time_read + (T2-T1)
@@ -1119,7 +1154,8 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
         do i = 1, nx
         do j = 1, ny
         do k = 1, nz
-        if (BoundFlux(i,j,k)> 0.0d0) then
+        if (BoundFlux(i,j,k) > 0.0d0) then
+        if (PSourceBool(i,j,k) == 1.0d0) then
         ! sum water inputs in PET 1 = P, 2 = ET, kk= PF timestep
         ! units of ([T]*[1/T]*[L^3])/[M/L^3] gives Mass of water input
         water_balance(kk,1) = water_balance(kk,1) &
@@ -1191,6 +1227,7 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
           goto 9090
         end if  !! do we have particles left?
       end do !! for flux particle resolution
+        end if ! end if for PSourceBool 
 
         else !! water removal
         ! sum water inputs in PET 1 = P, 2 = ET, kk= PF timestep
@@ -1516,6 +1553,7 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
                         end if !! ipwrite
 
 
+
                 end do  ! end of do-while loop for particle time to next time
         999 continue   ! where we go if the particle is out of bounds
 
@@ -1553,7 +1591,6 @@ if (mod((kk-1),(pft2-pft1+1)) == 0 )  pfkk = pft1 - 1
         !$OMP END PARALLEL
         call system_clock(T2)
         parallel_time = parallel_time + (T2-T1)
-
 
 call system_clock(T1)
 
