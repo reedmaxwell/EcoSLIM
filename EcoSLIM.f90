@@ -1763,16 +1763,16 @@ call system_clock(T1)
 
 ! Write out full particle array as binary restart file
 open(116,file=trim(runname)//'_particle_restart.bin', FORM='unformatted',  &
-    access='stream')
+    access='stream', status='replace')
 write(116) np_active
 write(116) pid
-!do ii = 1, np_active
+
 if (nind > 0) then
   write(116)  P(1:np_active,1:(nind*2+17))
 else
     write(116)  P(1:np_active,1:17)
 end if
-!end do !11
+
 close(116)
 
 ! close output file
