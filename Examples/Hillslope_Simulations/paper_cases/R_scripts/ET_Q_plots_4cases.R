@@ -10,10 +10,10 @@
 filename='../ER_hillslope_shrub/SLIM_hillslope_ER_shrub_ET_output.txt'
 ET_er_shrub = matrix(scan(file=filename,skip=1),nrow=8760*20,ncol=7,byrow=T)
 
-filename='../ER_hillslope_shrub/SLIM_hillslope_ER_shrub_flow_output.txt'
+filename='../ER_hillslope_shrub/SLIM_hillslope_ER_shrub_surface_outflow.txt'
 Outflow_er_shrub = matrix(scan(file=filename,skip=1),nrow=8760*20,ncol=7,byrow=T)
 
-filename='../ER_hillslope_shrub/SLIM_hillslope_ER_shrub_PET_balance.txt'
+filename='../ER_hillslope_shrub/SLIM_hillslope_ER_shrub_water_balance.txt'
 PET_er_shrub = matrix(scan(file=filename,skip=1),nrow=8760*20,ncol=3,byrow=T)
 
 
@@ -39,10 +39,10 @@ options(scipen=5)
 filename='../ER_hillslope_trees/SLIM_hillslope_ER_trees_ET_output.txt'
 ET_er_trees = matrix(scan(file=filename,skip=1),nrow=8760*20,ncol=7,byrow=T)
 
-filename='../ER_hillslope_trees/SLIM_hillslope_ER_trees_flow_output.txt'
+filename='../ER_hillslope_trees/SLIM_hillslope_ER_trees_surface_outflow.txt'
 Outflow_er_trees = matrix(scan(file=filename,skip=1),nrow=8760*20,ncol=7,byrow=T)
 
-filename='../ER_hillslope_trees/SLIM_hillslope_ER_trees_PET_balance.txt'
+filename='../ER_hillslope_trees/SLIM_hillslope_ER_trees_water_balance.txt'
 PET_er_trees = matrix(scan(file=filename,skip=1),nrow=8760*20,ncol=3,byrow=T)
 
 
@@ -68,10 +68,10 @@ options(scipen=5)
 filename='../LW_hillslope_shrub/SLIM_hillslope_LW_shrub_ET_output.txt'
 ET_lw_shrub = matrix(scan(file=filename,skip=1),nrow=8760*20,ncol=7,byrow=T)
 
-filename='../LW_hillslope_shrub/SLIM_hillslope_LW_shrub_flow_output.txt'
+filename='../LW_hillslope_shrub/SLIM_hillslope_LW_shrub_surface_outflow.txt'
 Outflow_lw_shrub = matrix(scan(file=filename,skip=1),nrow=8760*20,ncol=7,byrow=T)
 
-filename='../LW_hillslope_shrub/SLIM_hillslope_LW_shrub_PET_balance.txt'
+filename='../LW_hillslope_shrub/SLIM_hillslope_LW_shrub_water_balance.txt'
 PET_lw_shrub = matrix(scan(file=filename,skip=1),nrow=8760*20,ncol=3,byrow=T)
 
 
@@ -96,10 +96,10 @@ for (i in 1:(20*365)) {
 filename='../LW_hillslope_trees/SLIM_hillslope_LW_trees_ET_output.txt'
 ET_lw_trees = matrix(scan(file=filename,skip=1),nrow=8760*20,ncol=7,byrow=T)
 
-filename='../LW_hillslope_trees/SLIM_hillslope_LW_trees_flow_output.txt'
+filename='../LW_hillslope_trees/SLIM_hillslope_LW_trees_surface_outflow.txt'
 Outflow_lw_trees = matrix(scan(file=filename,skip=1),nrow=8760*20,ncol=7,byrow=T)
 
-filename='../LW_hillslope_trees/SLIM_hillslope_LW_trees_PET_balance.txt'
+filename='../LW_hillslope_trees/SLIM_hillslope_LW_trees_water_balance.txt'
 PET_lw_trees = matrix(scan(file=filename,skip=1),nrow=8760*20,ncol=3,byrow=T)
 
 

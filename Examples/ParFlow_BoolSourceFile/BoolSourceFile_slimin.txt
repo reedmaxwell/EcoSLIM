@@ -1,0 +1,32 @@
+SLIM_BooleanSource_test   ! SLIM run name
+"../BoolSourceFile_hillslope2D_transient/BoolSourceFile_hillslope2D_transient"
+""
+30    !nx
+1     !ny
+40     !nz
+10   !particles per cell at start of simulation
+500000   !np Total
+1.0     !dx
+1.0     !dy, dz follows
+0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1
+1.0   ! ParFlow DT
+1        ! Parflow t1: ParFlow file number to start from (initial condition is pft1-1)
+1000       ! Parflow t2: ParFlow file number to stop at
+0          ! EcoSLIM output start counter 0=pft1
+0.0        ! Particle start time counter (for recording particle insert times)
+1          ! Time Sequence Repeat [n_cycle*(pft2-pft1)]
+0         ! ipwrite frequency, controls an ASCII, .3D particle file not recommended due to poor performance
+1         ! ibinpntswrite frequency, controls VTK, binary output of particle locations and attributes
+1         !  etwrite frequency, controls ASCII ET output
+1        ! icwrite frequency,controls VTK, binary grid based output where particle masses, concentrations
+1.0d0       ! velocity multiplier 1.0=forward, -1.0=backward
+False           ! CLM Evap Trans
+False           ! CLM Variables Read logical
+1          ! number of particles per Evap Trans IC
+1000.0       ! density H2O
+0.00000   ! Molecular Diffusivity
+0.25d0        ! fraction of Dx/Vx for numerical stability
+0            ! Number of indicators provided. If this value is great than 0 an indicator file must be included
+"" ! Name of the indictor file to use set to '' if not using an indicator file
+True        ! add particles to domain from velocity files
+"../BoolSourceFile_hillslope2D_transient/PSourceBool"   ! Filename prefix for boolean particle source files. Set to "" if not using this feature.

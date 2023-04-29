@@ -90,10 +90,10 @@ write(15) "SCALARS Source float"//lf
 Write(15) "LOOKUP_TABLE default"//lf
 write(15) (real(P(j,7),kind=4), j=1,np_active)
 write(15) lf
-!write(15) "SCALARS Delta float"//lf
-!Write(15) "LOOKUP_TABLE default"//lf
-!write(15) (real(P(j,9),kind=4), j=1,np_active)
-!write(15) lf
+write(15) "SCALARS ID float"//lf
+Write(15) "LOOKUP_TABLE default"//lf
+write(15) (real(P(j,11),kind=4), j=1,np_active)
+write(15) lf
 CLOSE(15)
 
 
